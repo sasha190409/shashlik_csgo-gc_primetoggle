@@ -1,0 +1,104 @@
+#include "stdafx.h"
+#include "config.h"
+#include "keyvalue.h"
+#include "random.h"
+
+constexpr const char *ConfigFilePath = "csgo_gc/config.txt";
+
+const GCConfig &GetConfig()
+{
+    static GCConfig instance;
+    return instance;
+}
+
+GCConfig::GCConfig()
+{
+    KeyValue config{ "config" };
+
+    if (!config.ParseFromFile(ConfigFilePath))
+    {
+        return;
+    }
+
+    m_appIdOverride = config.GetNumber("appid_override", m_appIdOverride);
+    m_showCsgoGCServersOnly = config.GetNumber("show_csgo_gc_servers_only", m_showCsgoGCServersOnly);
+
+    const KeyValue *ranks = config.GetSubkey("ranks");
+    if (ranks)
+    {
+        m_competitiveRank = ranks->GetNumber("competitive_rank", m_competitiveRank);
+        m_competitiveWins = ranks->GetNumber("competitive_wins", m_competitiveWins);
+
+        m_wingmanRank = ranks->GetNumber("wingman_rank", m_wingmanRank);
+        m_wingmanWins = ranks->GetNumber("wingman_wins", m_wingmanWins);
+
+        m_dangerZoneRank = ranks->GetNumber("dangerzone_rank", m_dangerZoneRank);
+        m_dangerZoneWins = ranks->GetNumber("dangerzone_wins", m_dangerZoneWins);
+    }
+
+    m_destroyUsedItems = config.GetNumber("destroy_used_items", m_destroyUsedItems);
+    m_randomizeFloat = config.GetNumber("randomize_item_float", m_randomizeFloat);
+
+    const KeyValue *rarityWeights = config.GetSubkey("rarity_weights");
+    if (rarityWeights)
+    {
+        m_rarityWeights.clear();
+        m_rarityWeights.reserve(rarityWeights->SubkeyCount());
+
+        for (const KeyValue &subkey : *rarityWeights)
+        {
+            RarityWeight weight;
+            weight.rarity = FromString<uint32_t>(subkey.Name());
+            weight.weight = FromString<float>(subkey.String());
+            m_rarityWeights.push_back(weight);
+        }
+    }
+
+    const KeyValue *friends = config.GetSubkey("friends");
+    if (friends)
+    {
+        m_friends.clear();
+        m_friends.reserve(friends->SubkeyCount());
+
+        for (const KeyValue &subkey : *friends)
+        {
+            uint32_t friendId = FromString<uint32_t>(subkey.Name());
+            m_friends.push_back(friendId);
+        }
+    }
+
+    m_vacBanned = config.GetNumber("vac_banned", m_vacBanned);
+	m_hasPrime = config.GetNumber("has_prime", 1);
+    m_commendedFriendly = config.GetNumber("cmd_friendly", m_commendedFriendly);
+    m_commendedTeaching = config.GetNumber("cmd_teaching", m_commendedTeaching);
+    m_commendedLeader = config.GetNumber("cmd_leader", m_commendedLeader);
+    m_level = config.GetNumber("player_level", m_level);
+    m_xp = config.GetNumber("player_cur_xp", m_xp);
+
+    m_country = config.GetString("country", m_country);
+    m_currency = config.GetNumber("currency", m_currency);
+    if (!m_hasPrime)
+    {
+        m_competitiveRank = RankNone;
+        m_competitiveWins = 0;
+        m_wingmanRank = RankNone;
+        m_wingmanWins = 0;
+        m_dangerZoneRank = DangerZoneRankNone;
+        m_dangerZoneWins = 0;
+        m_level = 0;
+        m_xp = 0;
+    }
+}
+
+float GCConfig::GetRarityWeight(uint32_t rarity) const
+{
+    for (const RarityWeight &weight : m_rarityWeights)
+    {
+        if (weight.rarity == rarity)
+        {
+            return weight.weight;
+        }
+    }
+
+    return 0;
+}
