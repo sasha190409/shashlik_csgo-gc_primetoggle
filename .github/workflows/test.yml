@@ -4,8 +4,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  windows-2022:
+    name: Windows 2022
+    runs-on: windows-2022
+
+    steps:
+      - name: Test
+        run: echo Windows 2022 OK
+
+  windows-2023:
+    name: Windows 2023
     runs-on: windows-2023
 
     steps:
-      - run: echo OK
+      - name: Test
+        run: echo Windows 2023 OK
+
+  windows-2024:
+    name: Windows 2024
+    runs-on: windows-2024
+
+    steps:
+      - name: Test
+        run: echo Windows 2024 OK
