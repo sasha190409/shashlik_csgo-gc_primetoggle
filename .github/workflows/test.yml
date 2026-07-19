@@ -1,11 +1,11 @@
-name: Runner test
+name: Windows test
 
 on:
   workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-2023
 
     steps:
       - run: echo OK
