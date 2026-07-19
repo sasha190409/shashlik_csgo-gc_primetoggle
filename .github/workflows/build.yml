@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,13 +16,13 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2023]
         build_type: [Release]
 
     steps:
     - uses: actions/checkout@v4
 
-    - if: matrix.os != 'windows-latest'
+    - if: matrix.os != 'windows-2023'
       name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -49,7 +50,7 @@ jobs:
         cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DFUNCHOOK_CPU=x86 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
         cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }} --target csgo csgo_gc
 
-    - if: matrix.os == 'windows-latest'
+    - if: matrix.os == 'windows-2023'
       name: Build Windows
       run: |
         mkdir ${{ github.workspace }}/release
