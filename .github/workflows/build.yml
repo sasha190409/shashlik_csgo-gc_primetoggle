@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2023
+    runs-on: windows-2022
 
     env:
       SCCACHE_GHA_ENABLED: "true"
