@@ -9,10 +9,10 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2023   # только Windows, без матрицы
+    runs-on: windows-2023
 
     env:
-      SCCACHE_GHA_ENABLED: "true"   # можно оставить, но sccache не используется для Windows
+      SCCACHE_GHA_ENABLED: "true"
 
     steps:
     - uses: actions/checkout@v4
