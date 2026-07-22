@@ -35,8 +35,6 @@ While it's still possible to connect CS:GO to CS2's GC by spoofing the version n
 - Graphical inventory editor
 - A tool to copy your CS2 inventory over
 
-I'm still looking for the **full** CS:GO Item Schema. If you have a relatively recent copy of it and are willing to share it, let me know!
-
 ## Not planned
 - Matchmaking (can't be implemented without a centralized server)
 
@@ -50,7 +48,8 @@ I'm still looking for the **full** CS:GO Item Schema. If you have a relatively r
 - macOS users: The release binaries are not notarized, so if you're using them, you'll have to deal with that somehow
 
 ## Inventory editing
-Since there is no graphical editor yet, you'll have to edit `csgo_gc/inventory.txt` manually. There is a guide made by someone else [here](https://gist.github.com/dricotec/1ae3deb06c42012970c00df914348e76).
+~~Since there is no graphical editor yet, you'll have to edit `csgo_gc/inventory.txt` manually. There is a guide made by someone else [here](https://gist.github.com/dricotec/1ae3deb06c42012970c00df914348e76).~~
+Use [this](https://github.com/dricotec/csgo_gc_inventory-editor/releases/latest)
 
 ## Building
 Requirements:
@@ -62,22 +61,14 @@ The game is 32-bit on Windows so you need to build as 32-bit:
 
 `cmake -A Win32 -B build`
 
-Linux dedicated servers are also 32-bit:
-
-`cmake -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_ASM_FLAGS=-m32 -B build`
-
-On macOS, you need to build for x86_64 instead of arm64:
-
-`cmake -DCMAKE_OSX_ARCHITECTURES=x86_64 -DFUNCHOOK_CPU=x86 -B build`
-
-For Linux clients you don't have to specify any additional options.
-
 ## License
 This project is licensed under the 2-Clause BSD License. See [LICENSE.md](LICENSE.md) for details.
 
 ## Credits
 * **Mikko Kokko** - Author
 * **Theeto** - Code reused from the predecessor project, unusual loot lists
+* **Shashlik226** - For making most of the features work (passes, statrek swaps, etc)
+* **sasha190409** (me) - For prime toggle.
 
 ## Third party dependencies
 - [Crypto++](https://github.com/weidai11/cryptopp) ([Boost Software License](https://github.com/weidai11/cryptopp/blob/master/License.txt))
