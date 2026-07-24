@@ -35,7 +35,8 @@ GCConfig::GCConfig()
         m_dangerZoneRank = ranks->GetNumber("dangerzone_rank", m_dangerZoneRank);
         m_dangerZoneWins = ranks->GetNumber("dangerzone_wins", m_dangerZoneWins);
     }
-
+	
+	m_forceMaxRarity = config.GetNumber("force_max_rarity", m_forceMaxRarity);
     m_destroyUsedItems = config.GetNumber("destroy_used_items", m_destroyUsedItems);
     m_randomizeFloat = config.GetNumber("randomize_item_float", m_randomizeFloat);
 
