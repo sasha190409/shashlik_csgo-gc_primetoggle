@@ -108,7 +108,66 @@ uint32_t LootListItem::CaseRarity() const
 
     return rarity;
 }
+void ItemSchema::ApplyMaxRarityFilter()
+{
+    if (!GetConfig().ForceMaxRarity())
+        return;
 
+    for (auto& pair : m_lootLists)
+    {
+        LootList& list = pair.second;
+
+        // Рекурсивно собираем все предметы из текущего списка и всех подсписков
+        std::vector<LootListItem> allItems;
+        std::function<void(const LootList&)> collect = [&](const LootList& current) {
+            for (const auto& item : current.items)
+                allItems.push_back(item);
+            for (const auto* sub : current.subLists)
+                collect(*sub);
+        };
+        collect(list);
+
+        if (allItems.empty())
+            continue;
+
+        // 1. Находим максимальную редкость
+        uint32_t maxRarity = 0;
+        for (const auto& item : allItems) {
+            uint32_t rarity = item.CaseRarity();
+            if (rarity > maxRarity)
+                maxRarity = rarity;
+        }
+
+        // 2. Оставляем только предметы с максимальной редкостью
+        std::vector<LootListItem> filtered;
+        for (const auto& item : allItems) {
+            if (item.CaseRarity() == maxRarity)
+                filtered.push_back(item);
+        }
+
+        // 3. Если осталось меньше 2 предметов, добавляем предметы следующей редкости
+        if (filtered.size() < 2) {
+            uint32_t nextRarity = 0;
+            for (const auto& item : allItems) {
+                uint32_t r = item.CaseRarity();
+                if (r < maxRarity && r > nextRarity)
+                    nextRarity = r;
+            }
+            if (nextRarity > 0) {
+                for (const auto& item : allItems) {
+                    if (item.CaseRarity() == nextRarity) {
+                        filtered.push_back(item);
+                        if (filtered.size() >= 2) break;
+                    }
+                }
+            }
+        }
+
+        // 4. Заменяем список и очищаем подсписки (мы уже собрали все предметы)
+        list.items = std::move(filtered);
+        list.subLists.clear();
+    }
+}
 ItemSchema::ItemSchema()
 {
     KeyValue itemSchema{ "root" };
@@ -202,6 +261,7 @@ ItemSchema::ItemSchema()
             assert(false);
         }
     }
+    ApplyMaxRarityFilter();
 }
 
 float ItemSchema::AttributeFloat(const CSOEconItemAttribute *attribute) const
