@@ -33,6 +33,7 @@
 }
 
 // remove keys, cases, stickers, etc. after they've been used
+"force_max_rarity"      "0"
 "destroy_used_items"	"1"
 "randomize_item_float" "1"
 
