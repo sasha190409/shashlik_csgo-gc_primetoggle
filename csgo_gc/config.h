@@ -25,6 +25,7 @@ public:
     DangerZoneRankId DangerZoneRank() const { return m_dangerZoneRank; }
     int DangerZoneWins() const { return m_dangerZoneWins; }
 
+	bool ForceMaxRarity() const { return m_forceMaxRarity; }
     bool DestroyUsedItems() const { return m_destroyUsedItems; }
     bool RandomizeFloat() const { return m_randomizeFloat; }
 
@@ -56,6 +57,7 @@ private:
     DangerZoneRankId m_dangerZoneRank{ DangerZoneRankNone };
     int m_dangerZoneWins{ 0 };
 
+	bool m_forceMaxRarity{ false };
     bool m_destroyUsedItems{ true };
     bool m_randomizeFloat{ true };
 
