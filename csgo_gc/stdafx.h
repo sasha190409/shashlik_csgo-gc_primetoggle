@@ -1,5 +1,5 @@
 #pragma once
-
+#include <functional>
 #include <assert.h>
 
 #include <array>
