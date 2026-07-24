@@ -71,7 +71,6 @@ static std::pair<size_t, size_t> FindRarityRange(const std::vector<const LootLis
 {
     // MUST have items and they MUST be sorted
     assert(items.size() && std::is_sorted(items.begin(), items.end(), CompareRarity));
-
     auto lower = std::lower_bound(items.begin(), items.end(), rarity, RarityLower);
     auto upper = std::upper_bound(lower, items.end(), rarity, RarityUpper);
 
@@ -101,38 +100,37 @@ uint32_t CaseOpening::RandomRarityForItems(const std::vector<const LootListItem 
     // MUST have items and they MUST be sorted
     assert(items.size() && std::is_sorted(items.begin(), items.end(), CompareRarity));
 
-    std::vector<RarityWeight> weights;
-    weights.reserve(items.size()); // overkill
+    // --- НОВАЯ ЛОГИКА ---
+    if (GetConfig().ForceMaxRarity())
+    {
+        // items отсортированы по возрастанию редкости (чем больше число, тем реже)
+        // берём редкость последнего элемента – это максимум
+        uint32_t maxRarity = items.back()->CaseRarity();
+        return maxRarity;
+    }
 
+    // --- СТАРАЯ ЛОГИКА (взвешенный случайный выбор) ---
+    std::vector<RarityWeight> weights;
+    weights.reserve(items.size());
     float totalWeight = 0;
 
-    // items are sorted by rarity, so iterate through the available rarities like this
     for (size_t i = 0; i < items.size(); i++)
     {
         uint32_t rarity = items[i]->CaseRarity();
         float weight = GetConfig().GetRarityWeight(rarity);
-
         weights.push_back({ rarity, weight });
         totalWeight += weight;
-
-        // skip over any duplicate rarities
         while (i + 1 < items.size() && items[i]->CaseRarity() == items[i + 1]->CaseRarity())
-        {
             i++;
-        }
     }
 
-    // play the game of chance...
     float value = m_random.Float(0.0f, totalWeight);
     float accum = 0.0f;
-
     for (const RarityWeight &pair : weights)
     {
         accum += pair.weight;
         if (value < accum)
-        {
             return pair.rarity;
-        }
     }
 
     assert(false);
