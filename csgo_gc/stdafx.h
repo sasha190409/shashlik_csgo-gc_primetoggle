@@ -1,11 +1,11 @@
 #pragma once
-#include <functional>
 #include <assert.h>
 
 #include <array>
 #include <atomic>
 #include <charconv>
 #include <condition_variable>
+#include <functional>
 #include <queue>
 #include <random>
 #include <string>
