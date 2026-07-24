@@ -235,6 +235,7 @@ public:
     };
 
 private:
+    void ApplyMaxRarityFilter();
     void ParseItems(const KeyValue *itemsKey, const KeyValue *prefabsKey);
     void ParseItemRecursive(ItemInfo &info, const KeyValue &itemKey, const KeyValue *prefabsKey);
     void ParseAttributes(const KeyValue *attributesKey);
