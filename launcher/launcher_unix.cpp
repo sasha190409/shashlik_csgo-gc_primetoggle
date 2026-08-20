@@ -34,17 +34,17 @@ static void ErrorMessageBox(const char *format, ...)
 
     CFOptionFlags responseFlags;
 
-    CFUserNotificationDisplayAlert(0, // timeout
-        kCFUserNotificationStopAlertLevel, // docs: "The notification is very serious."
-        nullptr, // iconURL
-        nullptr, // soundURL
-        nullptr, // localizationURL
-        CFSTR("csgo_gc"), // alertHeader
-        messageString, // alertMessage
-        nullptr, // defaultButtonTitle
-        nullptr, // alternateButtonTitle
-        nullptr, // otherButtonTitle
-        &responseFlags); // not used but idk if it can be null
+    CFUserNotificationDisplayAlert(0,
+        kCFUserNotificationStopAlertLevel,
+        nullptr,
+        nullptr,
+        nullptr,
+        CFSTR("csgo_gc"),
+        messageString,
+        nullptr,
+        nullptr,
+        nullptr,
+        &responseFlags);
 
     CFRelease(messageString);
 #else
@@ -77,7 +77,6 @@ int main(int argc, char **argv)
     LauncherMain_t LauncherMain = (LauncherMain_t)LoadModuleAndFindSymbol(modulePath, SYMBOL_NAME);
     if (!LauncherMain)
     {
-        // LoadModuleAndFindSymbol told us why
         return 1;
     }
 
@@ -86,7 +85,6 @@ int main(int argc, char **argv)
     InstallGC_t InstallGC = (InstallGC_t)LoadModuleAndFindSymbol(modulePath, "InstallGC");
     if (!InstallGC)
     {
-        // LoadModuleAndFindSymbol told us why
         return 1;
     }
 
