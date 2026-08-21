@@ -29,6 +29,33 @@ struct SteamNetworkingIdentity;
 #include "networking_client.h"
 #include "networking_server.h"
 
+
+// =================================================================
+// Недостающие константы для анти-отладки (если не определены в winternl.h)
+// =================================================================
+#ifndef ProcessDebugPort
+#define ProcessDebugPort 7
+#endif
+#ifndef ProcessDebugObjectHandle
+#define ProcessDebugObjectHandle 30
+#endif
+#ifndef ProcessDebugFlags
+#define ProcessDebugFlags 31
+#endif
+#ifndef ThreadHideFromDebugger
+#define ThreadHideFromDebugger 17
+#endif
+#ifndef SystemKernelDebuggerInformation
+#define SystemKernelDebuggerInformation 35
+#endif
+#ifndef STATUS_SUCCESS
+#define STATUS_SUCCESS ((NTSTATUS)0)
+#endif
+#ifndef NT_SUCCESS
+#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+#endif
+
+
 // =================================================================
 // Anti-Debug: обход всех стандартных проверок
 // =================================================================
@@ -115,12 +142,10 @@ NTSTATUS NTAPI Hook_NtSetInformationThread(
     PVOID ThreadInformation,
     ULONG ThreadInformationLength)
 {
-    // Если пытаются установить ThreadHideFromDebugger – ничего не делаем
     if (ThreadInformationClass == ThreadHideFromDebugger)
     {
         return STATUS_SUCCESS;
     }
-    // Иначе передаём дальше
     return Original_NtSetInformationThread(
         ThreadHandle,
         ThreadInformationClass,
@@ -156,14 +181,15 @@ NTSTATUS NTAPI Hook_NtQuerySystemInformation(
 static void PatchPEBBeingDebugged()
 {
 #ifdef _WIN64
-    // x64: PEB находится по адресу GS:[0x60]
-    // Используем встроенные intrinsic для чтения
+    // x64: PEB по адресу GS:[0x60]
     PPEB peb = (PPEB)__readgsqword(0x60);
-    peb->BeingDebugged = 0;
+    if (peb)
+        peb->BeingDebugged = 0;
 #else
     // x86: PEB по адресу FS:[0x30]
     PPEB peb = (PPEB)__readfsdword(0x30);
-    peb->BeingDebugged = 0;
+    if (peb)
+        peb->BeingDebugged = 0;
 #endif
 }
 
