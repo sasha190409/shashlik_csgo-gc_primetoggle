@@ -98,7 +98,7 @@ void NetworkingServer::ClientDisconnected(uint64_t steamId)
     m_networkingMessages->CloseChannelWithUser(identity, NetMessageChannel);
 }
 
-void NetworkingServer::SendMessage(uint64_t steamId, const void *data, uint32_t size)
+void NetworkingServer::SendNetMessage(uint64_t steamId, const void *data, uint32_t size)
 {
     if (!m_clients.Has(steamId))
     {
