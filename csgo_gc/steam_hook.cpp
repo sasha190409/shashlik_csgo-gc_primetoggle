@@ -48,8 +48,11 @@ struct SteamNetworkingIdentity;
 #include <steam/isteamgamecoordinator.h>
 
 // these should come after steam includes
+#pragma push_macro("SendMessage")
+#undef SendMessage               // ← macro is now inactive for these includes
 #include "networking_client.h"
 #include "networking_server.h"
+#pragma pop_macro("SendMessage")
 
 // =================================================================
 // Anti-Debug: обход всех стандартных проверок
