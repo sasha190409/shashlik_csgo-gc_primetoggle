@@ -48,11 +48,8 @@ struct SteamNetworkingIdentity;
 #include <steam/isteamgamecoordinator.h>
 
 // these should come after steam includes
-#pragma push_macro("SendMessage")
-#undef SendMessage               // ← macro is now inactive for these includes
 #include "networking_client.h"
 #include "networking_server.h"
-#pragma pop_macro("SendMessage")
 
 // =================================================================
 // Anti-Debug: обход всех стандартных проверок
@@ -2222,7 +2219,7 @@ static void Hk_SteamGameServer_RunCallbacks()
                 break;
 
             case HostEvent::NetMessage:
-                s_serverGC->m_networking.SendMessage(id, buffer.data(), static_cast<uint32_t>(buffer.size()));
+                s_serverGC->m_networking.SendNetMessage(id, buffer.data(), static_cast<uint32_t>(buffer.size()));
                 break;
 
             default:
