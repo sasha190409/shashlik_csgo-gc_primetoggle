@@ -19,7 +19,7 @@ public:
 
     void Update(ClientGC *gc);
 
-    void SendMessage(const void *data, uint32_t size);
+    void SendNetMessage(const void *data, uint32_t size);
 
     // for gameserver validation
     void SetAuthTicket(uint32_t handle, const void *data, uint32_t size);
