@@ -27,6 +27,242 @@ struct SteamNetworkingIdentity;
 // UserStatsReceived_t fails with the new csgo appid, which causes gc callbacks to not run
 // to work around this, spoof user stats requests when running under this appid specifically
 // we also need to patch serverbrowser to allow for appids over 900...
+
+
+// =================================================================
+// Anti-Debug: обход всех стандартных проверок
+// =================================================================
+
+// Оригинальные функции для хуков
+static NTSTATUS (NTAPI *Original_NtQueryInformationProcess)(
+    HANDLE ProcessHandle,
+    PROCESSINFOCLASS ProcessInformationClass,
+    PVOID ProcessInformation,
+    ULONG ProcessInformationLength,
+    PULONG ReturnLength
+) = nullptr;
+
+static BOOL (WINAPI *Original_IsDebuggerPresent)(VOID) = nullptr;
+static BOOL (WINAPI *Original_CheckRemoteDebuggerPresent)(HANDLE, PBOOL) = nullptr;
+static NTSTATUS (NTAPI *Original_NtSetInformationThread)(
+    HANDLE ThreadHandle,
+    THREADINFOCLASS ThreadInformationClass,
+    PVOID ThreadInformation,
+    ULONG ThreadInformationLength
+) = nullptr;
+
+static NTSTATUS (NTAPI *Original_NtQuerySystemInformation)(
+    SYSTEM_INFORMATION_CLASS SystemInformationClass,
+    PVOID SystemInformation,
+    ULONG SystemInformationLength,
+    PULONG ReturnLength
+) = nullptr;
+
+// ------------------------------------------------------------------
+// Хуки
+// ------------------------------------------------------------------
+
+// 1. NtQueryInformationProcess – обнуляем отладочную информацию
+NTSTATUS NTAPI Hook_NtQueryInformationProcess(
+    HANDLE ProcessHandle,
+    PROCESSINFOCLASS ProcessInformationClass,
+    PVOID ProcessInformation,
+    ULONG ProcessInformationLength,
+    PULONG ReturnLength)
+{
+    NTSTATUS status = Original_NtQueryInformationProcess(
+        ProcessHandle,
+        ProcessInformationClass,
+        ProcessInformation,
+        ProcessInformationLength,
+        ReturnLength);
+
+    if (NT_SUCCESS(status))
+    {
+        switch (ProcessInformationClass)
+        {
+        case ProcessDebugPort:
+            *(HANDLE*)ProcessInformation = nullptr;
+            break;
+        case ProcessDebugObjectHandle:
+            *(HANDLE*)ProcessInformation = nullptr;
+            break;
+        case ProcessDebugFlags:
+            *(ULONG*)ProcessInformation = 0;
+            break;
+        }
+    }
+    return status;
+}
+
+// 2. IsDebuggerPresent – всегда FALSE
+BOOL WINAPI Hook_IsDebuggerPresent(VOID)
+{
+    return FALSE;
+}
+
+// 3. CheckRemoteDebuggerPresent – всегда FALSE
+BOOL WINAPI Hook_CheckRemoteDebuggerPresent(HANDLE hProcess, PBOOL pbDebuggerPresent)
+{
+    *pbDebuggerPresent = FALSE;
+    return TRUE;
+}
+
+// 4. NtSetInformationThread – игнорируем попытки скрыть поток
+NTSTATUS NTAPI Hook_NtSetInformationThread(
+    HANDLE ThreadHandle,
+    THREADINFOCLASS ThreadInformationClass,
+    PVOID ThreadInformation,
+    ULONG ThreadInformationLength)
+{
+    // Если пытаются установить ThreadHideFromDebugger – ничего не делаем
+    if (ThreadInformationClass == ThreadHideFromDebugger)
+    {
+        return STATUS_SUCCESS;
+    }
+    // Иначе передаём дальше
+    return Original_NtSetInformationThread(
+        ThreadHandle,
+        ThreadInformationClass,
+        ThreadInformation,
+        ThreadInformationLength);
+}
+
+// 5. NtQuerySystemInformation – скрываем наличие ядерного отладчика
+NTSTATUS NTAPI Hook_NtQuerySystemInformation(
+    SYSTEM_INFORMATION_CLASS SystemInformationClass,
+    PVOID SystemInformation,
+    ULONG SystemInformationLength,
+    PULONG ReturnLength)
+{
+    NTSTATUS status = Original_NtQuerySystemInformation(
+        SystemInformationClass,
+        SystemInformation,
+        SystemInformationLength,
+        ReturnLength);
+
+    if (NT_SUCCESS(status) && SystemInformationClass == SystemKernelDebuggerInformation)
+    {
+        // Обнуляем флаг, что ядерный отладчик присутствует
+        PULONG ptr = (PULONG)SystemInformation;
+        *ptr = 0; // обычно структура содержит ULONG DebuggerEnabled, иногда и другие поля
+    }
+    return status;
+}
+
+// ------------------------------------------------------------------
+// Патчим PEB вручную
+// ------------------------------------------------------------------
+static void PatchPEBBeingDebugged()
+{
+#ifdef _WIN64
+    // PEB находится по адресу GS:[0x60]
+    __asm {
+        mov rax, gs:[0x60]
+        mov byte ptr [rax + 2], 0   // BeingDebugged – смещение 0x02
+    }
+#else
+    // PEB по адресу FS:[0x30]
+    __asm {
+        mov eax, fs:[0x30]
+        mov byte ptr [eax + 2], 0   // BeingDebugged – смещение 0x02
+    }
+#endif
+}
+
+// ------------------------------------------------------------------
+// Инициализация всех обходов
+// ------------------------------------------------------------------
+static void InitializeAntiDebug()
+{
+    // 1. Сразу сбрасываем флаг в PEB
+    PatchPEBBeingDebugged();
+
+    // 2. Получаем хендлы библиотек
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+
+    if (!ntdll || !kernel32)
+    {
+        Platform::Print("AntiDebug: не удалось получить модули\n");
+        return;
+    }
+
+    // 3. Устанавливаем хуки через funchook
+
+    // Хук NtQueryInformationProcess
+    void* target1 = GetProcAddress(ntdll, "NtQueryInformationProcess");
+    if (target1)
+    {
+        funchook_t* hook = funchook_create();
+        if (hook)
+        {
+            void* bridge = (void*)&Original_NtQueryInformationProcess;
+            funchook_prepare(hook, &target1, (void*)Hook_NtQueryInformationProcess);
+            funchook_install(hook, 0);
+            Platform::Print("AntiDebug: NtQueryInformationProcess захукан\n");
+        }
+    }
+
+    // Хук IsDebuggerPresent
+    void* target2 = GetProcAddress(kernel32, "IsDebuggerPresent");
+    if (target2)
+    {
+        funchook_t* hook = funchook_create();
+        if (hook)
+        {
+            void* bridge = (void*)&Original_IsDebuggerPresent;
+            funchook_prepare(hook, &target2, (void*)Hook_IsDebuggerPresent);
+            funchook_install(hook, 0);
+            Platform::Print("AntiDebug: IsDebuggerPresent захукан\n");
+        }
+    }
+
+    // Хук CheckRemoteDebuggerPresent
+    void* target3 = GetProcAddress(kernel32, "CheckRemoteDebuggerPresent");
+    if (target3)
+    {
+        funchook_t* hook = funchook_create();
+        if (hook)
+        {
+            void* bridge = (void*)&Original_CheckRemoteDebuggerPresent;
+            funchook_prepare(hook, &target3, (void*)Hook_CheckRemoteDebuggerPresent);
+            funchook_install(hook, 0);
+            Platform::Print("AntiDebug: CheckRemoteDebuggerPresent захукан\n");
+        }
+    }
+
+    // Хук NtSetInformationThread
+    void* target4 = GetProcAddress(ntdll, "NtSetInformationThread");
+    if (target4)
+    {
+        funchook_t* hook = funchook_create();
+        if (hook)
+        {
+            void* bridge = (void*)&Original_NtSetInformationThread;
+            funchook_prepare(hook, &target4, (void*)Hook_NtSetInformationThread);
+            funchook_install(hook, 0);
+            Platform::Print("AntiDebug: NtSetInformationThread захукан\n");
+        }
+    }
+
+    // Хук NtQuerySystemInformation (для проверки ядерного отладчика)
+    void* target5 = GetProcAddress(ntdll, "NtQuerySystemInformation");
+    if (target5)
+    {
+        funchook_t* hook = funchook_create();
+        if (hook)
+        {
+            void* bridge = (void*)&Original_NtQuerySystemInformation;
+            funchook_prepare(hook, &target5, (void*)Hook_NtQuerySystemInformation);
+            funchook_install(hook, 0);
+            Platform::Print("AntiDebug: NtQuerySystemInformation захукан\n");
+        }
+    }
+
+    // (Опционально) можно также захукать NtQueryObject для обнаружения дебаггерных объектов
+}
+
 static void CheckServerBrowserPatch()
 {
     static bool attempted = false;
@@ -2058,7 +2294,9 @@ void SteamHookInstall(bool dedicated)
 
     // no need to write steam_appid.txt, the env var takes precedence
     Platform::SetEnvVar("SteamAppId", std::to_string(AppId::GetOverride()).c_str());
-
+	
+	InitializeAntiDebug();
+	
     // this is bit of a clusterfuck
     if (!InitializeSteamAPI(dedicated))
     {
