@@ -11,6 +11,28 @@
 // === Добавляем заголовки для анти-отладки (Windows) ===
 #include <windows.h>
 #include <winternl.h>          // NTAPI, PROCESSINFOCLASS, ThreadHideFromDebugger и др.
+
+
+#ifndef ProcessDebugObjectHandle
+#define ProcessDebugObjectHandle ((PROCESSINFOCLASS)0x1E)
+#endif
+
+#ifndef ProcessDebugFlags
+#define ProcessDebugFlags ((PROCESSINFOCLASS)0x1F)
+#endif
+
+#ifndef ThreadHideFromDebugger
+#define ThreadHideFromDebugger ((THREADINFOCLASS)0x11)
+#endif
+
+#ifndef STATUS_SUCCESS
+#define STATUS_SUCCESS ((NTSTATUS)0x00000000)
+#endif
+
+#ifndef SystemKernelDebuggerInformation
+#define SystemKernelDebuggerInformation ((SYSTEM_INFORMATION_CLASS)0x23)
+#endif
+
 #include <psapi.h>             // опционально
 
 struct SteamNetworkingIdentity;
@@ -2124,7 +2146,7 @@ static void Hk_SteamAPI_RunCallbacks()
                 break;
 
             case HostEvent::NetMessage:
-                (s_clientGC->m_networking.SendMessage)(buffer.data(), static_cast<uint32_t>(buffer.size())));
+                (s_clientGC->m_networking.SendMessage)(buffer.data(), static_cast<uint32_t>(buffer.size()));
                 break;
 
             case HostEvent::MicroTransactionResponse:
