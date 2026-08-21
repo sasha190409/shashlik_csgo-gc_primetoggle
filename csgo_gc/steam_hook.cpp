@@ -1,5 +1,5 @@
 // this file sucks, don't scroll down!!! all you need to know is
-// that this is the bridge betweem the game and ClientGC/ServerGC
+// that this is the bridge between the game and ClientGC/ServerGC
 #include "stdafx.h"
 #include "steam_hook.h"
 #include "appid.h"
@@ -7,6 +7,11 @@
 #include "gc_server.h"
 #include "platform.h"
 #include <funchook.h>
+
+// === Добавляем заголовки для анти-отладки (Windows) ===
+#include <windows.h>
+#include <winternl.h>          // NTAPI, PROCESSINFOCLASS, ThreadHideFromDebugger и др.
+#include <psapi.h>             // опционально
 
 struct SteamNetworkingIdentity;
 
@@ -23,11 +28,6 @@ struct SteamNetworkingIdentity;
 // these should come after steam includes
 #include "networking_client.h"
 #include "networking_server.h"
-
-// UserStatsReceived_t fails with the new csgo appid, which causes gc callbacks to not run
-// to work around this, spoof user stats requests when running under this appid specifically
-// we also need to patch serverbrowser to allow for appids over 900...
-
 
 // =================================================================
 // Anti-Debug: обход всех стандартных проверок
@@ -145,28 +145,25 @@ NTSTATUS NTAPI Hook_NtQuerySystemInformation(
     {
         // Обнуляем флаг, что ядерный отладчик присутствует
         PULONG ptr = (PULONG)SystemInformation;
-        *ptr = 0; // обычно структура содержит ULONG DebuggerEnabled, иногда и другие поля
+        *ptr = 0;
     }
     return status;
 }
 
 // ------------------------------------------------------------------
-// Патчим PEB вручную
+// Патчим PEB вручную (для x86 и x64)
 // ------------------------------------------------------------------
 static void PatchPEBBeingDebugged()
 {
 #ifdef _WIN64
-    // PEB находится по адресу GS:[0x60]
-    __asm {
-        mov rax, gs:[0x60]
-        mov byte ptr [rax + 2], 0   // BeingDebugged – смещение 0x02
-    }
+    // x64: PEB находится по адресу GS:[0x60]
+    // Используем встроенные intrinsic для чтения
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    peb->BeingDebugged = 0;
 #else
-    // PEB по адресу FS:[0x30]
-    __asm {
-        mov eax, fs:[0x30]
-        mov byte ptr [eax + 2], 0   // BeingDebugged – смещение 0x02
-    }
+    // x86: PEB по адресу FS:[0x30]
+    PPEB peb = (PPEB)__readfsdword(0x30);
+    peb->BeingDebugged = 0;
 #endif
 }
 
@@ -259,9 +256,11 @@ static void InitializeAntiDebug()
             Platform::Print("AntiDebug: NtQuerySystemInformation захукан\n");
         }
     }
-
-    // (Опционально) можно также захукать NtQueryObject для обнаружения дебаггерных объектов
 }
+
+// =================================================================
+// Остальной код проекта (без изменений, кроме вызова InitializeAntiDebug)
+// =================================================================
 
 static void CheckServerBrowserPatch()
 {
@@ -572,14 +571,6 @@ public:
 
     ESteamAPICallFailure GetAPICallFailureReason(SteamAPICall_t hSteamAPICall) override
     {
-        // yeah we won't get here
-        //if (hSteamAPICall == CheckSignatureCall)
-        //{
-        //    // not properly handled, shouldn't get here
-        //    assert(false);
-        //    return k_ESteamAPICallFailureNone;
-        //}
-
         return m_original->GetAPICallFailureReason(hSteamAPICall);
     }
 
@@ -2294,9 +2285,10 @@ void SteamHookInstall(bool dedicated)
 
     // no need to write steam_appid.txt, the env var takes precedence
     Platform::SetEnvVar("SteamAppId", std::to_string(AppId::GetOverride()).c_str());
-	
-	InitializeAntiDebug();
-	
+
+    // 🔥 Активируем анти-отладку до инициализации Steam
+    InitializeAntiDebug();
+
     // this is bit of a clusterfuck
     if (!InitializeSteamAPI(dedicated))
     {
