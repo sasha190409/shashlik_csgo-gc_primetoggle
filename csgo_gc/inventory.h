@@ -100,7 +100,7 @@ public:
     void ReloadFromFile();
     void WriteToFile() const;
 private:
-    mutable std::mutex m_mutex;
+    mutable std::recursive_mutex m_mutex;
     uint32_t AccountId() const;
 
     // allocates an empty item, sets id and account_id fields
