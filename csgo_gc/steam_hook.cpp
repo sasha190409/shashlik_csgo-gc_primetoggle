@@ -1897,7 +1897,7 @@ static void Hk_SteamAPI_RunCallbacks()
                 break;
 
             case HostEvent::NetMessage:
-                s_clientGC->m_networking.SendMessage(buffer.data(), static_cast<uint32_t>(buffer.size()));
+                s_clientGC->m_networking.SendNetMessage(buffer.data(), static_cast<uint32_t>(buffer.size()));
                 break;
 
             case HostEvent::MicroTransactionResponse:
