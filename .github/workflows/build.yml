@@ -12,10 +12,6 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 60
 
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-      SCCACHE_CACHE_SIZE: "2G"
-
     steps:
     - uses: actions/checkout@v4
 
@@ -23,9 +19,6 @@ jobs:
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x86
-
-    - name: Setup sccache
-      uses: mozilla-actions/sccache-action@v0.0.4
 
     - name: Cache FetchContent deps
       uses: actions/cache@v4
@@ -38,7 +31,7 @@ jobs:
     - name: Configure
       run: |
         mkdir ${{ github.workspace }}/release
-        cmake -G Ninja -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -S ${{ github.workspace }} -DOUTDIR=${{ github.workspace }}/release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        cmake -G Ninja -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -S ${{ github.workspace }} -DOUTDIR=${{ github.workspace }}/release
 
     - name: Build
       run: cmake --build ${{ github.workspace }}/build --target csgo srcds csgo_gc --parallel
