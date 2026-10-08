@@ -116,7 +116,7 @@ private:
 
     // helper, only called via EquipItem
     bool UnequipItem(uint64_t itemId, CMsgSOMultipleObjects &update);
-    void UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update);
+    void UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update, uint64_t excludeItemId = 0);
 
     void DestroyItem(ItemMap::iterator iterator, CMsgSOSingleObject &message);
 
