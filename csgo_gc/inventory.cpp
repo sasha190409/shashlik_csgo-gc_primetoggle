@@ -394,6 +394,16 @@ constexpr uint64_t ItemIdInvalid = 0;
 // also i think this is the way valve gc does it???? can't remember
 bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update)
 {
+    // --- NEW: Handle "Equip for both teams" ---
+    if (classId == 0)
+    {
+        // Split into T (1) and CT (2). 
+        // Note: If your client uses different class IDs for teams, adjust 1 and 2 below.
+        bool success1 = EquipItem(itemId, 1, slotId, update); // Terrorist
+        bool success2 = EquipItem(itemId, 2, slotId, update); // Counter-Terrorist
+        return success1 || success2;
+    }
+
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (slotId == SlotUneqip)
     {
@@ -403,7 +413,7 @@ bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CM
 
     // mikkotodo cleanup, old junk
     assert(itemId);
-    assert(itemId != UINT64_MAX); // probably an old csgo thing
+    assert(itemId != UINT64_MAX);
 
     if (itemId == ItemIdInvalid)
     {
@@ -436,14 +446,14 @@ bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CM
         if (it == m_items.end())
         {
             Platform::Print("EquipItem: no such item %llu!!!!\n", itemId);
-            return false; // didn't modify anything
+            return false; 
         }
 
         // if an item is equipped in this slot, unequip it first
-        UnequipItem(classId, slotId, update);
+        // --- FIX: Pass itemId to exclude it from the unequip update ---
+        UnequipItem(classId, slotId, update, itemId);
 
-        Platform::Print("EquipItem %llu class %d slot %d\n", itemId, classId,
-            slotId);
+        Platform::Print("EquipItem %llu class %d slot %d\n", itemId, classId, slotId);
 
         CSOEconItem &item = it->second;
 
@@ -1422,11 +1432,15 @@ bool Inventory::UnequipItem(uint64_t itemId, CMsgSOMultipleObjects &update)
 }
 
 // this goes through everything on purpose
-void Inventory::UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update)
+void Inventory::UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update, uint64_t excludeItemId)
 {
     // check non default items first
     for (auto &pair : m_items)
     {
+        // --- FIX: Skip the item we are about to equip ---
+        if (pair.first == excludeItemId) 
+            continue; 
+
         CSOEconItem &item = pair.second;
 
         bool modified = false;
@@ -1460,9 +1474,6 @@ void Inventory::UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObj
             Platform::Print("Unequip %u class %d slot %d\n", it->item_definition(), classId, slotId);
 
             // mikkotodo is this correct???
-            // mikkotodo rpobably not correct.. i gess we don't even have to do this
-            // because the new equip overrides the old one
-            // but we can't just remove it either because "update" would get fucked
             it->set_item_definition(0);
             AddToMultipleObjects(update, SOTypeDefaultEquippedDefinitionInstanceClient, *it);
 
