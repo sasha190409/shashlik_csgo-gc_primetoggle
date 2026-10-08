@@ -53,6 +53,7 @@ Inventory::~Inventory()
 
 void Inventory::AddToMultipleObjects(CMsgSOMultipleObjects &message, SOTypeId type, const google::protobuf::MessageLite &object)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (!message.has_version())
     {
         assert(!message.has_owner_soid());
@@ -94,6 +95,7 @@ uint32_t Inventory::AccountId() const
 
 const CSOEconItem* Inventory::GetItem(uint64_t itemId) const
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it != m_items.end())
         return &it->second;
@@ -148,6 +150,7 @@ CSOEconItem &Inventory::AllocateItem(uint32_t highItemId)
 
 CSOEconItem &Inventory::CreateItem(const CSOEconItem &copyFrom)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     CSOEconItem &item = AllocateItem(0);
 
     // shitty but what can you do
@@ -262,7 +265,7 @@ void Inventory::ReadItem(const KeyValue &itemKey, CSOEconItem &item) const
 
 void Inventory::WriteToFile() const
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     KeyValue inventoryKey{ "inventory" };
 
     {
@@ -325,7 +328,7 @@ void Inventory::WriteItem(KeyValue &itemKey, const CSOEconItem &item) const
 
 void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, int level, bool server)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     message.set_version(InventoryVersion);
     message.mutable_owner_soid()->set_type(SoIdTypeSteamId);
     message.mutable_owner_soid()->set_id(m_steamId);
@@ -391,6 +394,7 @@ constexpr uint64_t ItemIdInvalid = 0;
 // also i think this is the way valve gc does it???? can't remember
 bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (slotId == SlotUneqip)
     {
         // unequipping a specific item from all slots
@@ -455,6 +459,7 @@ bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CM
 
 bool Inventory::RemoveItem(uint64_t itemId, CMsgSOSingleObject &response)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it == m_items.end())
     {
@@ -472,6 +477,7 @@ bool Inventory::UseItem(uint64_t itemId,
     CMsgSOMultipleObjects &updateMultiple,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it == m_items.end())
     {
@@ -535,6 +541,7 @@ bool Inventory::UnlockCrate(uint64_t crateId,
     CMsgSOSingleObject &newItem,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto crate = m_items.find(crateId);
     if (crate == m_items.end())
     {
@@ -781,6 +788,7 @@ bool Inventory::SetItemPositions(
     std::vector<CMsgItemAcknowledged> &acknowledgements,
     CMsgSOMultipleObjects &update)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     for (const CMsgSetItemPositions_ItemPosition &position : message.item_positions())
     {
         auto it = m_items.find(position.item_id());
@@ -810,6 +818,7 @@ bool Inventory::ApplySticker(const CMsgApplySticker &message,
     CMsgSOSingleObject &destroy,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     assert(message.has_sticker_item_id());
     assert(message.has_sticker_slot());
     assert(!message.has_sticker_wear());
@@ -917,6 +926,7 @@ bool Inventory::ScrapeSticker(const CMsgApplySticker &message,
     CMsgSOSingleObject &destroy,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(message.item_item_id());
     if (it == m_items.end())
     {
@@ -994,6 +1004,7 @@ bool Inventory::ScrapeSticker(const CMsgApplySticker &message,
 
 bool Inventory::IncrementKillCountAttribute(uint64_t itemId, uint32_t amount, CMsgSOSingleObject &update)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it == m_items.end())
     {
@@ -1034,6 +1045,7 @@ bool Inventory::NameItem(uint64_t nameTagId,
     CMsgSOSingleObject &destroy,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it == m_items.end())
     {
@@ -1095,6 +1107,7 @@ bool Inventory::NameBaseItem(uint64_t nameTagId,
     CMsgSOSingleObject &destroy,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     CSOEconItem &item = CreateItem(defIndex, ItemOriginBaseItem, UnacknowledgedInvalid);
 
     item.mutable_custom_name()->assign(name);
@@ -1124,6 +1137,7 @@ bool Inventory::RemoveItemName(uint64_t itemId,
     CMsgSOSingleObject &destroy,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto it = m_items.find(itemId);
     if (it == m_items.end())
     {
@@ -1198,6 +1212,7 @@ bool Inventory::CasketItemAdd(uint64_t casketId,
     CMsgSOSingleObject &updateCasket,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto casket = m_items.find(casketId);
     if (casket == m_items.end())
     {
@@ -1256,6 +1271,7 @@ bool Inventory::CasketItemRemove(uint64_t casketId,
     CMsgSOSingleObject &updateCasket,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto casket = m_items.find(casketId);
     if (casket == m_items.end())
     {
@@ -1305,6 +1321,7 @@ bool Inventory::StatTrakSwap(uint64_t toolId,
     CMsgSOSingleObject &updateItem2,
     CMsgGCItemCustomizationNotification &notification)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     auto item1 = m_items.find(item1Id);
     if (item1 == m_items.end())
     {
@@ -1370,6 +1387,7 @@ bool Inventory::StatTrakSwap(uint64_t toolId,
 
 uint64_t Inventory::PurchaseItem(uint32_t defIndex, std::vector<CMsgSOSingleObject> &update)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     CSOEconItem &item = CreateItem(defIndex, ItemOriginPurchased, UnacknowledgedPurchased);
 
     CMsgSOSingleObject &single = update.emplace_back();
@@ -1474,7 +1492,7 @@ void Inventory::ReloadFromFile()
     if (now - g_InventoryModuleStartTime < std::chrono::seconds(10))
         return;
 
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     // Snapshot the IDs of all items that currently exist in memory
     std::unordered_set<uint64_t> oldItemIds;
