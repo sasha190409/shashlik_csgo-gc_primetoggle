@@ -1739,9 +1739,8 @@ void ClientGC::OnPartyInvite(GCMessageRead &messageRead)
         return;
     }
 
-    // Инвайт отправляется в адрес другого клиента.
-    // Пересылаем через P2P — регистрируем это в NetworkingParty.
-    PostToHost(HostEvent::PartyInvite, message.accountid(), &message.lobbyid(), sizeof(uint32_t));
+    uint32_t lobbyId = message.lobbyid();
+    PostToHost(HostEvent::PartyInvite, message.accountid(), &lobbyId, sizeof(lobbyId));
 
     Platform::Print("Party_Invite → account %u (lobby %u)\n",
         message.accountid(), message.lobbyid());
@@ -1756,8 +1755,9 @@ void ClientGC::OnClientPartyJoinRelay(GCMessageRead &messageRead)
         return;
     }
 
-    // Клиент подтвердил вступление в лобби — надо уведомить хоста.
-    PostToHost(HostEvent::PartyJoinRelay, message.accountid(), &message.lobbyid(), sizeof(uint64_t));
+    uint32_t lobbyId = static_cast<uint32_t>(message.lobbyid());
+    PostToHost(HostEvent::PartyJoinRelay, message.accountid(), &lobbyId, sizeof(lobbyId));
+
     Platform::Print("ClientPartyJoinRelay → host account %u\n", message.accountid());
 }
 
