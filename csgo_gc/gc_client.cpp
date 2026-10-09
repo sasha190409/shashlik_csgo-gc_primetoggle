@@ -263,6 +263,14 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
         case k_EMsgGCCStrike15_v2_ClientPartyWarning:
             OnClientPartyWarning(messageRead);
             break;
+        case k_EMsgGCCStrike15_v2_AcknowledgePenalty:
+            OnAcknowledgePenalty(messageRead);
+            break;
+        
+        case k_EMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin:
+            OnRequestPrestigeCoin(messageRead);
+            break;
+
 
         default:
             Platform::Print("ClientGC::HandleMessage: unhandled protobuf message %s\n",
@@ -320,6 +328,76 @@ void ClientGC::UpdateCooldown()
         Platform::Print("Competitive cooldown expired.\n");
     }
 }
+
+void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_AcknowledgePenalty message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing CMsgGCCStrike15_v2_AcknowledgePenalty failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("AcknowledgePenalty: acknowledged=%d\n", message.acknowledged());
+
+    // Если кулдаун у нас ещё «висит» локально — считаем его подтверждённым
+    // и отправляем клиенту нулевую длительность, чтобы UI сбросил таймер.
+    if (m_isCooldownActive)
+    {
+        m_isCooldownActive = false;
+        SendCompetitiveCooldown();
+    }
+}
+
+void ClientGC::OnRequestPrestigeCoin(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing CMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("PrestigeCoin request: defindex=%u upgradeid=%llu hours=%u prestigetime=%u\n",
+        message.defindex(),
+        static_cast<unsigned long long>(message.upgradeid()),
+        message.hours(),
+        message.prestigetime());
+
+    // Всегда выдаём престиж-монету за 2023 год, уровень 1 (def_index 4873).
+    // Уровни 4874..4878 (lvl 2..6) остаются на будущее.
+    constexpr uint32_t PrestigeCoin2023DefIndex = 4873;
+
+    std::vector<CMsgSOSingleObject> newItems;
+    uint64_t itemId = m_inventory.PurchaseItem(PrestigeCoin2023DefIndex, newItems);
+    if (!itemId)
+    {
+        Platform::Print("PrestigeCoin: failed to create item def=%u (нет в items_game.txt?)\n",
+            PrestigeCoin2023DefIndex);
+        return;
+    }
+
+    Platform::Print("PrestigeCoin: granted item %llu\n",
+        static_cast<unsigned long long>(itemId));
+
+    // Сообщаем и клиенту, и (если мы на сервере) серверу, что появился новый предмет.
+    for (const CMsgSOSingleObject &item : newItems)
+    {
+        SendMessageToGame(false, k_ESOMsg_Create, item);
+        SendMessageToGame(true,  k_ESOMsg_Create, item);
+    }
+
+    // Ресетим уровень/XP.
+    GetConfig().SetLevel(1);
+    GetConfig().SetXp(0);
+
+    // PersonaDataPublic (уровень) лежит в socache — перестраиваем её.
+    SendInventoryUpdate();
+
+    // И Hello с обновлёнными player_level / player_cur_xp.
+    SendMatchmakingHelloUpdate();
+}
+
 
 void ClientGC::ProcessGiftUse(uint64_t giftId)
 {
