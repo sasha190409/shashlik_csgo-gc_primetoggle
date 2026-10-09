@@ -8,6 +8,17 @@
 #include <steam/isteamhttp.h>
 #include <steam/steam_api_common.h>
 
+struct PartyLobby
+{
+    uint32_t lobbyId{};
+    uint32_t hostAccountId{};
+    uint32_t gameType{};
+    uint32_t ver{};
+    uint32_t launcher{};
+    std::vector<uint32_t> memberAccountIds;
+    bool active{ false };
+};
+
 class ClientGC final : public SharedGC
 {
 public:
@@ -15,14 +26,21 @@ public:
     ~ClientGC();
     void CheckFileReloads();
 
-     uint64_t GetSteamId() const { return m_steamId; }   // now public
+    uint64_t GetSteamId() const { return m_steamId; }   // now public
 
     // Overwatch HTTP callback
     void OnOverwatchHTTPResponse(HTTPRequestCompleted_t *pCallback);
     void OnOverwatchCaseStatus(GCMessageRead &messageRead);
     void OnOverwatchCaseUpdate(GCMessageRead &messageRead);
-    void OnClientReportValidation(GCMessageRead &messageRead);
-    void OnGetEventFavorites(GCMessageRead &messageRead);
+
+    // P2P party entry points (called from NetworkingParty)
+    void OnRemotePartyInvite(uint32_t fromAccountId, uint32_t lobbyId, uint32_t gameType);
+    void OnRemoteJoinRelay(uint32_t fromAccountId, uint32_t lobbyId);
+    void OnRemoteLobbyUpdate(uint32_t fromAccountId, uint32_t lobbyId,
+        const std::vector<uint32_t> &members);
+
+    const PartyLobby &GetPartyLobby() const { return m_partyLobby; }
+
 private:
     KeyValue m_priceSheet;          // cached price_sheet.txt
     KeyValue m_passes;              // cached passes.txt
@@ -113,4 +131,16 @@ private:
     std::chrono::steady_clock::time_point m_cooldownEndTime;
     void SendCompetitiveCooldown();
     void UpdateCooldown();
+
+    // ===== Party =====
+    PartyLobby m_partyLobby;
+
+    void OnPartyRegister(GCMessageRead &messageRead);
+    void OnPartyUnregister(GCMessageRead &messageRead);
+    void OnPartyInvite(GCMessageRead &messageRead);
+    void OnClientPartyJoinRelay(GCMessageRead &messageRead);
+    void OnClientPartyWarning(GCMessageRead &messageRead);
+
+    void OnClientReportValidation(GCMessageRead &messageRead);
+    void OnGetEventFavorites(GCMessageRead &messageRead);
 };
