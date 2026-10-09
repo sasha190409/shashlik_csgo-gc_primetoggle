@@ -1694,19 +1694,26 @@ void ClientGC::DeleteItem(GCMessageRead &messageRead)
     uint64_t itemId = messageRead.ReadUint64();
     if (!messageRead.IsValid())
     {
-        Platform::Print("Parsing CMsgGCDelete failed, ignoring\n");
+        Platform::Print("DeleteItem: parsing CMsgGCDelete failed, ignoring\n");
         return;
     }
 
+    Platform::Print("DeleteItem: requested for item %llu\n",
+        static_cast<unsigned long long>(itemId));
+
     CMsgSOSingleObject destroyed;
-    if (m_inventory.RemoveItem(itemId, destroyed))
+    if (!m_inventory.RemoveItem(itemId, destroyed))
     {
-        SendMessageToGame(true, k_ESOMsg_Destroy, destroyed);
+        Platform::Print("DeleteItem: item %llu not found in inventory\n",
+            static_cast<unsigned long long>(itemId));
+        return;
     }
-    else
-    {
-        assert(false);
-    }
+
+    SendMessageToGame(true, k_ESOMsg_Destroy, destroyed);
+    SendInventoryUpdate();
+
+    Platform::Print("DeleteItem: removed %llu, sent destroy + resync\n",
+        static_cast<unsigned long long>(itemId));
 }
 
 void ClientGC::UnlockCrate(GCMessageRead &messageRead)
