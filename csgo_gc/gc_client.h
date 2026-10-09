@@ -5,7 +5,6 @@
 #include "inventory.h"
 #include "keyvalue.h"
 
-#include <steam/isteamhttp.h>
 #include <steam/steam_api_common.h>
 
 struct PartyLobby
@@ -26,13 +25,8 @@ public:
     ~ClientGC();
     void CheckFileReloads();
 
-    uint64_t GetSteamId() const { return m_steamId; }   // now public
+    uint64_t GetSteamId() const { return m_steamId; }
     uint32_t GetAccountId() const { return m_steamId & 0xffffffff; }
-
-    // Overwatch HTTP callback
-    void OnOverwatchHTTPResponse(HTTPRequestCompleted_t *pCallback);
-    void OnOverwatchCaseStatus(GCMessageRead &messageRead);
-    void OnOverwatchCaseUpdate(GCMessageRead &messageRead);
 
     // P2P party entry points (called from NetworkingParty)
     void OnRemotePartyInvite(uint32_t fromAccountId, uint32_t lobbyId, uint32_t gameType);
@@ -42,26 +36,27 @@ public:
 
     const PartyLobby &GetPartyLobby() const { return m_partyLobby; }
 
+    // convenience accessor for the stored privacy settings
+    const std::unordered_map<uint32_t, uint32_t> &GetPrivacySettings() const { return m_privacySettings; }
+
 private:
-    KeyValue m_priceSheet;          // cached price_sheet.txt
-    KeyValue m_passes;              // cached passes.txt
-    KeyValue m_unusualLootLists;    // cached unusual_loot_lists.txt
+    KeyValue m_priceSheet;
+    KeyValue m_passes;
+    KeyValue m_unusualLootLists;
 
     void HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t> &buffer) override;
     bool m_isSearching{ false };
-    // event handlers
+
     void HandleMessage(uint32_t type, const void *data, uint32_t size);
     void HandleNetMessage(const void *data, uint32_t size);
     void HandleSOCacheRequest();
 
-    // send to the local game and the game server we're connected to (if we're connected)
     void SendMessageToGame(bool sendToGameServer, uint32_t type,
         const google::protobuf::MessageLite &message, uint64_t jobId = JobIdInvalid);
 
     void OnClientHello(GCMessageRead &messageRead);
-    void OnAcknowledgePenalty(GCMessageRead &messageRead);
-    void OnRequestPrestigeCoin(GCMessageRead &messageRead);    
     void AdjustItemEquippedState(GCMessageRead &messageRead);
+    void AdjustItemEquippedStateMulti(GCMessageRead &messageRead);
     void ClientPlayerDecalSign(GCMessageRead &messageRead);
     void UseItemRequest(GCMessageRead &messageRead);
     void ClientRequestJoinServerData(GCMessageRead &messageRead);
@@ -85,6 +80,16 @@ private:
     void NameBaseItem(GCMessageRead &messageRead);
     void RemoveItemName(GCMessageRead &messageRead);
 
+    // NEW: secure mode / validation
+    void OnClientInitSystemResponse(GCMessageRead &messageRead);
+    void SendInitSystem();
+
+    // NEW: privacy
+    void OnAccountPrivacySettings(GCMessageRead &messageRead);
+
+    // NEW: souvenir
+    void OnClientRequestSouvenir(GCMessageRead &messageRead);
+
     void BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHello &message);
     void BuildClientWelcome(CMsgClientWelcome &message, const CMsgCStrike15Welcome &csWelcome,
         const CMsgGCCStrike15_v2_MatchmakingGC2ClientHello &matchmakingHello);
@@ -93,6 +98,7 @@ private:
     void OnMatchmakingStart(GCMessageRead &messageRead);
     void OnMatchmakingStop(GCMessageRead &messageRead);
     void SendMatchmakingUpdate();
+
     const uint64_t m_steamId;
     void ProcessGiftUse(uint64_t giftId);
     Inventory m_inventory;
@@ -108,21 +114,9 @@ private:
     void ReloadPasses();
     void ReloadUnusualLootLists();
 
-    // Overwatch data (only one set)
-    std::vector<uint32_t> m_overwatchSuspects;   // account IDs from overwatch.json
-    size_t m_nextOverwatchIndex = 0;
-    uint64_t m_nextCaseId = 1;
-    std::mutex m_overwatchMutex;
+    // Account privacy settings, indexed by setting_type
+    std::unordered_map<uint32_t, uint32_t> m_privacySettings;
 
-    void FetchOverwatchCases();
-    void SendOverwatchCaseAssignment(uint32_t suspectAccountId);
-    void SendVerdictToCloudflare(const CMsgGCCStrike15_v2_PlayerOverwatchCaseUpdate &msg);
-
-    // Helper: parse "STEAM_0:X:YYYY" -> account ID
-    static uint32_t SteamIDStringToAccountId(const std::string& str);
-
-    // Steam HTTP callback – use CCallback, not STEAM_CALLBACK macro
-    CCallback<ClientGC, HTTPRequestCompleted_t, false> m_httpCallback;
     void SendMatchmakingHelloUpdate();
     uint32_t AccountId() const { return m_steamId & 0xffffffff; }
     uint32_t EffectiveAccountId() const;
