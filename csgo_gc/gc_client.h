@@ -21,7 +21,8 @@ public:
     void OnOverwatchHTTPResponse(HTTPRequestCompleted_t *pCallback);
     void OnOverwatchCaseStatus(GCMessageRead &messageRead);
     void OnOverwatchCaseUpdate(GCMessageRead &messageRead);
-
+    void OnClientReportValidation(GCMessageRead &messageRead);
+    void OnGetEventFavorites(GCMessageRead &messageRead);
 private:
     KeyValue m_priceSheet;          // cached price_sheet.txt
     KeyValue m_passes;              // cached passes.txt
