@@ -167,4 +167,5 @@ private:
 
     void OnClientReportValidation(GCMessageRead &messageRead);
     void OnGetEventFavorites(GCMessageRead &messageRead);
+    void OnClientRequestPrestigeCoin(GCMessageRead &messageRead);
 };
