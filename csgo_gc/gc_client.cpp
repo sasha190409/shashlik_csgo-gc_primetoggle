@@ -256,6 +256,10 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             OnAcknowledgePenalty(messageRead);
             break;
 
+        case k_EMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin:
+            OnClientRequestPrestigeCoin(messageRead);
+            break;
+
         case k_EMsgGCCStrike15_v2_SetPlayerLeaderboardSafeName:
             OnSetPlayerLeaderboardSafeName(messageRead);
             break;
@@ -826,6 +830,59 @@ void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
     }
 
     Platform::Print("AcknowledgePenalty: acknowledged=%d\n", message.acknowledged());
+}
+
+// ============================================================================
+// Prestige coin
+// ============================================================================
+
+void ClientGC::OnClientRequestPrestigeCoin(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing Client2GCRequestPrestigeCoin failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("Client2GCRequestPrestigeCoin: defindex=%u upgradeid=%llu hours=%u prestigetime=%u\n",
+        request.defindex(),
+        static_cast<unsigned long long>(request.upgradeid()),
+        request.hours(),
+        request.prestigetime());
+
+    CMsgSOSingleObject create, destroy;
+    CMsgGCItemCustomizationNotification notification;
+    uint64_t newItemId = 0;
+
+    if (!m_inventory.GrantPrestigeCoin(newItemId, create, destroy, notification))
+    {
+        // Уже на максимальном уровне (4878). Показываем клиенту попап,
+        // чтобы кнопка не висела "в обработке" вечно.
+        Platform::Print("Prestige coin: refused (already at max level)\n");
+
+        CMsgGCClientDisplayNotification refuse;
+        refuse.set_notification_title_localization_key("Prestige Coin");
+        refuse.set_notification_body_localization_key("Already at maximum level.");
+        SendMessageToGame(false, k_EMsgGCClientDisplayNotification, refuse);
+        return;
+    }
+
+    // Сброс уровня и XP на престиж
+    GetConfig().SetLevel(1);
+    GetConfig().SetXp(0);
+    GetConfig().Save();
+
+    // ReloadConfig перечитает файл с диска и разошлёт SendRankUpdate() +
+    // SendMatchmakingHelloUpdate(), чтобы клиент увидел новый уровень/XP.
+    ReloadConfig();
+
+    if (destroy.has_type_id())
+    {
+        SendMessageToGame(true, k_ESOMsg_Destroy, destroy);
+    }
+    SendMessageToGame(true, k_ESOMsg_Create, create);
+    SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification);
 }
 
 // ============================================================================
