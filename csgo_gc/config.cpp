@@ -95,6 +95,27 @@ void GCConfig::ReloadFromFile()
     Parse(config);
 }
 
+void GCConfig::Save() const
+{
+    // Read the current file so that all fields we don't touch (appid_override,
+    // rarity_weights, friends, ...) survive the round-trip. If the file does
+    // not exist, ParseFromFile returns false and we just start with an empty
+    // root and write the two fields below.
+    KeyValue config{ "config" };
+    config.ParseFromFile(ConfigFilePath);
+
+    config.SetNumber("player_level", m_level);
+    config.SetNumber("player_cur_xp", m_xp);
+
+    if (!config.WriteToFile(ConfigFilePath))
+    {
+        Platform::Print("GCConfig::Save: failed to write %s\n", ConfigFilePath);
+        return;
+    }
+
+    Platform::Print("config.txt updated: player_level=%d player_cur_xp=%d\n", m_level, m_xp);
+}
+
 float GCConfig::GetRarityWeight(uint32_t rarity) const
 {
     for (const RarityWeight &weight : m_rarityWeights)
