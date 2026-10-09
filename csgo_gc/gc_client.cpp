@@ -1567,7 +1567,7 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
             lobbyId, leaderAccountId, prime ? 1u : 0u, rank);
     };
 
-    registerLobby(selfLobbyId, EffectiveAccountId());
+    // registerLobby(selfLobbyId, EffectiveAccountId());
 
     for (uint32_t friendId : GetConfig().GetFriends())
     {
@@ -1593,7 +1593,7 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         entry->set_accountid(accountId);
     };
 
-    addEntry(selfLobbyId, EffectiveAccountId());
+    // addEntry(selfLobbyId, EffectiveAccountId());
 
     for (uint32_t friendId : GetConfig().GetFriends())
     {
