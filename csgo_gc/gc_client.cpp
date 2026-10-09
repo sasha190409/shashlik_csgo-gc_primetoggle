@@ -1944,20 +1944,38 @@ void ClientGC::OnPartyRegister(GCMessageRead &messageRead)
         return;
     }
 
-    m_partyLobby.lobbyId = message.id();
-    m_partyLobby.ver = message.ver();
-    m_partyLobby.gameType = message.game_type();
-    m_partyLobby.launcher = message.launcher();
-    m_partyLobby.hostAccountId = EffectiveAccountId();
-    m_partyLobby.active = true;
-
-    if (m_partyLobby.memberAccountIds.empty())
+    // Клиент шлёт Party_Register с id=0 при создании лобби.
+    // Нам нужно присвоить ненулевой id и вернуть эхо обратно.
+    uint32_t lobbyId = message.id();
+    if (lobbyId == 0)
     {
-        m_partyLobby.memberAccountIds.push_back(EffectiveAccountId());
+        // Генерируем случайный id лобби. Нельзя 0 — клиент считает это
+        // «не зарегистрирован».
+        do { lobbyId = Random{}.Integer<uint32_t>(); } while (lobbyId == 0);
     }
 
-    Platform::Print("Party_Register: lobby=%u host=%u game_type=%u\n",
-        m_partyLobby.lobbyId, m_partyLobby.hostAccountId, m_partyLobby.gameType);
+    m_partyLobby.lobbyId    = lobbyId;
+    m_partyLobby.hostAccountId = EffectiveAccountId();
+    m_partyLobby.gameType   = message.game_type();
+    m_partyLobby.ver        = message.ver();
+    m_partyLobby.launcher   = message.launcher();
+    m_partyLobby.active     = true;
+
+    // Отправляем клиенту эхо с валидным id и минимальными настройками.
+    CMsgGCCStrike15_v2_Party_Register response;
+    response.set_id(lobbyId);
+    response.set_ver(message.ver());
+    response.set_apr(GetConfig().HasPrime() ? 1 : 0);
+    response.set_ark(static_cast<uint32_t>(GetConfig().CompetitiveRank()) * 10);
+    response.set_grp(3);
+    response.set_slots(5);                 // максимум для MM
+    response.set_launcher(message.launcher());
+    response.set_game_type(message.game_type());
+
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_Party_Register, response);
+
+    Platform::Print("Party_Register: assigned lobby=%u host=%u game_type=%u\n",
+        lobbyId, m_partyLobby.hostAccountId, m_partyLobby.gameType);
 }
 
 void ClientGC::OnPartyUnregister(GCMessageRead &messageRead)
