@@ -36,8 +36,10 @@ public:
     int CommendedFriendly() const { return m_commendedFriendly; }
     int CommendedTeaching() const { return m_commendedTeaching; }
     int CommendedLeader() const { return m_commendedLeader; }
-    int Level() const { return m_level; }
-    int Xp() const { return m_xp; }
+	int Level() const { return m_level; }
+	int Xp() const { return m_xp; }
+	void SetLevel(int level) { m_level = level; }
+	void SetXp(int xp) { m_xp = xp; }
 
     std::string Country() const { return m_country; }
     int Currency() const { return m_currency; }
