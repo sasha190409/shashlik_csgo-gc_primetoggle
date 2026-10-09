@@ -18,6 +18,8 @@
 "player_level"	"39"
 "player_cur_xp"	"4999"
 
+"error" "" // fake error
+
 "country"	"RU"
 "currency"	"3"
 "fake_account_id" "0" // do not use fake steamid
