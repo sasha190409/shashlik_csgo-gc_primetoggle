@@ -1522,31 +1522,78 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         return;
     }
 
+    // Get everything from config.
+    const bool    prime    = GetConfig().HasPrime();
+    const uint32_t rank    = static_cast<uint32_t>(GetConfig().CompetitiveRank());
+    const uint32_t gameType = message.game_type();
+    const uint32_t myLobbyId = m_partyLobby.active && m_partyLobby.lobbyId
+        ? m_partyLobby.lobbyId
+        : AccountId();
+
+    Platform::Print("PartySearch: building %d lobbies (game_type=%u)\n",
+        (int)GetConfig().GetFriends().size() + 1, gameType);
+
+    // ------------------------------------------------------------------
+    // 1) Register every lobby the client is about to see. PartyBrowser's
+    //    GetPartyMemberXuid / GetPartySessionSetting only work on lobbies
+    //    that have an active session in the engine, and sessions are only
+    //    created by Party_Register (9189). SearchResults alone is not
+    //    enough - the client will end up asking for the profile of
+    //    account 0 and render an empty tile.
+    // ------------------------------------------------------------------
+    auto registerLobby = [&](uint32_t lobbyId)
+    {
+        CMsgGCCStrike15_v2_Party_Register reg;
+        reg.set_id(lobbyId);
+        reg.set_ver(1);
+        reg.set_apr(prime ? 1 : 0);
+        reg.set_ark(rank);
+        reg.set_nby(0);
+        reg.set_grp(3);
+        reg.set_slots(5);
+        reg.set_launcher(0);
+        reg.set_game_type(gameType);
+        SendMessageToGame(false, k_EMsgGCCStrike15_v2_Party_Register, reg);
+    };
+
+    // Register our own lobby (self) first, so it shows up as the first entry.
+    registerLobby(myLobbyId);
+
+    // Register a lobby for each friend.
+    for (uint32_t friendId : GetConfig().GetFriends())
+    {
+        if (friendId == AccountId())
+            continue;
+        registerLobby(friendId);
+    }
+
+    // ------------------------------------------------------------------
+    // 2) Now the SearchResults, referencing the same ids.
+    // ------------------------------------------------------------------
     CMsgGCCStrike15_v2_Party_SearchResults response;
 
-    CMsgGCCStrike15_v2_Party_SearchResults::Entry *entry = response.add_entries();
-    entry->set_id(AccountId());
-    entry->set_grp(3);
-    entry->set_game_type(message.game_type());
-    entry->set_apr(1);
-    entry->set_ark(std::rand() % 18 + 1);
-    entry->set_loc(30066);
-    entry->set_accountid(EffectiveAccountId());
-
-    for (uint32_t player_id : GetConfig().GetFriends())
+    auto addEntry = [&](uint32_t lobbyId, uint32_t accountId)
     {
-        if (AccountId() == player_id)
-            continue;
-
-        entry = response.add_entries();
-        entry->set_id(player_id);
+        CMsgGCCStrike15_v2_Party_SearchResults::Entry *entry = response.add_entries();
+        entry->set_id(lobbyId);
         entry->set_grp(3);
-        entry->set_game_type(message.game_type());
-        entry->set_apr(std::rand() % 40 + 1);
-        entry->set_ark(std::rand() % 18 + 1);
+        entry->set_game_type(gameType);
+        entry->set_apr(prime ? 1 : 0);
+        entry->set_ark(rank);
         entry->set_loc(30066);
-        entry->set_accountid(player_id);
+        entry->set_accountid(accountId);
+    };
+
+    addEntry(myLobbyId, EffectiveAccountId());
+
+    for (uint32_t friendId : GetConfig().GetFriends())
+    {
+        if (friendId == AccountId())
+            continue;
+        addEntry(friendId, friendId);
     }
+
+    Platform::Print("PartySearch: sending %d entries\n", response.entries_size());
 
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_Party_Search, response);
 }
