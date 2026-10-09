@@ -1535,24 +1535,13 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
     const uint32_t gameType = message.game_type();
     const uint32_t launcher = message.launcher();
 
-    // Self lobby id: use the id assigned by our own Party_Register, or
-    // fall back to the account id if we never registered one.
-    const uint32_t selfLobbyId = (m_partyLobby.active && m_partyLobby.lobbyId)
-        ? m_partyLobby.lobbyId
-        : AccountId();
-
-    // ------------------------------------------------------------------
-    // 1. Register a lobby session for every entry we're about to send.
-    //    PartyBrowser's GetPartyMemberXuid / GetPartySessionSetting only
-    //    consult the engine's lobby-session registry, which is populated
-    //    exclusively by Party_Register (9189). SearchResults alone is not
-    //    enough - the client will show an empty leader tile and request
-    //    a profile for account 0.
-    // ------------------------------------------------------------------
-    auto registerLobby = [&](uint32_t lobbyId, uint32_t leaderAccountId)
+    // PartyBrowser resolves GetPartyMemberXuid(id, 0) by treating `id` as
+    // the leader's ACCOUNT ID, not as a lobby id. So both Party_Register.id
+    // and Party_SearchResults.Entry.id must be the account id.
+    auto registerLobby = [&](uint32_t accountId)
     {
         CMsgGCCStrike15_v2_Party_Register reg;
-        reg.set_id(lobbyId);
+        reg.set_id(accountId);
         reg.set_ver(1);
         reg.set_apr(prime ? 1 : 0);
         reg.set_ark(rank);
@@ -1563,28 +1552,14 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         reg.set_game_type(gameType);
         SendMessageToGame(false, k_EMsgGCCStrike15_v2_Party_Register, reg);
 
-        Platform::Print("PartySearch: registered lobby=%u leader=%u (apr=%u ark=%u)\n",
-            lobbyId, leaderAccountId, prime ? 1u : 0u, rank);
+        Platform::Print("PartySearch: registered lobby=%u (apr=%u ark=%u)\n",
+            accountId, prime ? 1u : 0u, rank);
     };
 
-    // registerLobby(selfLobbyId, EffectiveAccountId());
-
-    for (uint32_t friendId : GetConfig().GetFriends())
+    auto addEntry = [&](CMsgGCCStrike15_v2_Party_SearchResults &out, uint32_t accountId)
     {
-        if (friendId == AccountId())
-            continue;
-        registerLobby(friendId, friendId);
-    }
-
-    // ------------------------------------------------------------------
-    // 2. Emit the search results that reference the same lobby ids.
-    // ------------------------------------------------------------------
-    CMsgGCCStrike15_v2_Party_SearchResults response;
-
-    auto addEntry = [&](uint32_t lobbyId, uint32_t accountId)
-    {
-        CMsgGCCStrike15_v2_Party_SearchResults::Entry *entry = response.add_entries();
-        entry->set_id(lobbyId);
+        CMsgGCCStrike15_v2_Party_SearchResults::Entry *entry = out.add_entries();
+        entry->set_id(accountId);
         entry->set_grp(3);
         entry->set_game_type(gameType);
         entry->set_apr(prime ? 1 : 0);
@@ -1593,17 +1568,33 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         entry->set_accountid(accountId);
     };
 
-    // addEntry(selfLobbyId, EffectiveAccountId());
+    // ------------------------------------------------------------------
+    // 1. Register each lobby first so the engine's lobby registry knows
+    //    about the leader. SearchResults alone is not enough: the engine
+    //    fills its GetPartyMemberXuid map from Party_Register (9189).
+    // ------------------------------------------------------------------
+    registerLobby(EffectiveAccountId());
 
     for (uint32_t friendId : GetConfig().GetFriends())
     {
-        if (friendId == AccountId())
-            continue;
-        addEntry(friendId, friendId);
+        if (friendId == AccountId()) continue;
+        registerLobby(friendId);
     }
 
-    Platform::Print("PartySearch: sending %d entries (self lobby=%u, game_type=%u)\n",
-        response.entries_size(), selfLobbyId, gameType);
+    // ------------------------------------------------------------------
+    // 2. Emit search results referencing the same ids.
+    // ------------------------------------------------------------------
+    CMsgGCCStrike15_v2_Party_SearchResults response;
+
+    addEntry(response, EffectiveAccountId());
+
+    for (uint32_t friendId : GetConfig().GetFriends())
+    {
+        if (friendId == AccountId()) continue;
+        addEntry(response, friendId);
+    }
+
+    Platform::Print("PartySearch: sending %d entries\n", response.entries_size());
 
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_Party_Search, response);
 }
