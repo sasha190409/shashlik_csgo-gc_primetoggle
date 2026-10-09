@@ -80,15 +80,35 @@ private:
     void NameBaseItem(GCMessageRead &messageRead);
     void RemoveItemName(GCMessageRead &messageRead);
 
-    // NEW: secure mode / validation
+    // Secure mode / validation
     void OnClientInitSystemResponse(GCMessageRead &messageRead);
     void SendInitSystem();
 
-    // NEW: privacy
+    // Privacy
     void OnAccountPrivacySettings(GCMessageRead &messageRead);
 
-    // NEW: souvenir
+    // Souvenir
     void OnClientRequestSouvenir(GCMessageRead &messageRead);
+
+    // NEW
+    void OnAcknowledgePenalty(GCMessageRead &messageRead);
+    void OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead);
+    void OnClientReportPlayer(GCMessageRead &messageRead);
+    void OnClientReportServer(GCMessageRead &messageRead);
+    void OnClientCommendPlayer(GCMessageRead &messageRead);
+    void OnSetMyActivityInfo(GCMessageRead &messageRead);
+    void OnGlobalChatSubscribe(GCMessageRead &messageRead);
+    void OnGlobalChatUnsubscribe(GCMessageRead &messageRead);
+    void OnClientToGCChat(GCMessageRead &messageRead);
+
+    // MatchList / Watch (empty responses)
+    void OnMatchListRequestCurrentLiveGames(GCMessageRead &messageRead);
+    void OnMatchListRequestRecentUserGames(GCMessageRead &messageRead);
+    void OnMatchListRequestLiveGameForUser(GCMessageRead &messageRead);
+    void OnMatchListRequestFullGameInfo(GCMessageRead &messageRead);
+    void OnMatchListRequestTournamentGames(GCMessageRead &messageRead);
+
+    void SendEmptyMatchList(uint32_t requestId, uint32_t accountId);
 
     void BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHello &message);
     void BuildClientWelcome(CMsgClientWelcome &message, const CMsgCStrike15Welcome &csWelcome,
@@ -116,6 +136,13 @@ private:
 
     // Account privacy settings, indexed by setting_type
     std::unordered_map<uint32_t, uint32_t> m_privacySettings;
+
+    // Fatal error handling: if the config has "error", we send
+    // ClientLogonFatalError and stop. This flag prevents duplicate sends.
+    bool m_fatalErrorSent{ false };
+
+    // set by SetPlayerLeaderboardSafeName
+    std::string m_leaderboardSafeName;
 
     void SendMatchmakingHelloUpdate();
     uint32_t AccountId() const { return m_steamId & 0xffffffff; }
