@@ -235,6 +235,14 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
         case k_EMsgGCCStrike15_v2_PlayerOverwatchCaseUpdate:
             OnOverwatchCaseUpdate(messageRead);
             break;
+        
+        case k_EMsgGCCStrike15_v2_ClientReportValidation:
+            OnClientReportValidation(messageRead);
+            break;
+
+        case k_EMsgGCCStrike15_v2_GetEventFavorites_Request:
+            OnGetEventFavorites(messageRead);
+            break;
 
         default:
             Platform::Print("ClientGC::HandleMessage: unhandled protobuf message %s\n",
@@ -538,6 +546,57 @@ void ClientGC::SendRankUpdate()
     rank->set_rank_type_id(RankTypeDangerZone);
 
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, message);
+}
+
+void ClientGC::OnClientReportValidation(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientReportValidation message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Failed to parse ClientReportValidation\n");
+        return;
+    }
+
+    // Просто логируем то, что прислал клиент. Ответ не требуется.
+    Platform::Print("[Validation] status_id: %u | total_files: %u | client_version: %u | trust_time: %u\n",
+        message.status_id(),
+        message.total_files(),
+        message.clientreportversion(),
+        message.trust_time());
+    
+    if (!message.file_report().empty())
+    {
+        // Логируем первые 128 символов отчёта, чтобы не засрать консоль
+        Platform::Print("[Validation] file_report (truncated): %.128s...\n", message.file_report().c_str());
+    }
+    
+    // Если есть диагностика, её тоже можно вывести
+    for (int i = 0; i < message.diagnostics_size(); i++)
+    {
+        const CVDiagnostic &diag = message.diagnostics(i);
+        Platform::Print("[Validation] Diag id: %u, string: %s\n", diag.id(), diag.string_value().c_str());
+    }
+}
+
+void ClientGC::OnGetEventFavorites(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_GetEventFavorites_Request request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Failed to parse GetEventFavorites_Request\n");
+        return;
+    }
+
+    // Клиент ждёт ответа, иначе UI турниров/Pick'Em будет висеть или выдаст ошибку.
+    // Отправляем пустые JSON-массивы, чтобы клиент не пытался парсить null.
+    CMsgGCCStrike15_v2_GetEventFavorites_Response response;
+    response.set_all_events(request.all_events());
+    response.set_json_favorites("[]");
+    response.set_json_featured("[]");
+
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GetEventFavorites_Response, response);
+    
+    Platform::Print("Sent empty GetEventFavorites_Response (all_events: %d)\n", request.all_events());
 }
 
 void ClientGC::OnClientHello(GCMessageRead &messageRead)
