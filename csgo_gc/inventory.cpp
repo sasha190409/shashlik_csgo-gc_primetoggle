@@ -593,6 +593,70 @@ bool Inventory::UnlockCrate(uint64_t crateId,
     return true;
 }
 
+bool Inventory::GrantPrestigeCoin(
+    uint64_t &newItemId,
+    CMsgSOSingleObject &create,
+    CMsgSOSingleObject &destroy,
+    CMsgGCItemCustomizationNotification &notification)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+
+    // Ищем существующую монету среди 4873..4878
+    uint64_t existingId  = 0;
+    uint32_t existingDef = 0;
+    for (const auto &pair : m_items)
+    {
+        const CSOEconItem &item = pair.second;
+        if (item.def_index() >= ItemSchema::ItemPrestigeCoinMin
+            && item.def_index() <= ItemSchema::ItemPrestigeCoinMax)
+        {
+            existingId  = pair.first;
+            existingDef = item.def_index();
+            break;
+        }
+    }
+
+    uint32_t newDef;
+    if (existingId == 0)
+    {
+        // Первое получение — уровень 1
+        newDef = ItemSchema::ItemPrestigeCoinMin;
+    }
+    else if (existingDef >= ItemSchema::ItemPrestigeCoinMax)
+    {
+        // Уже максимальный уровень
+        return false;
+    }
+    else
+    {
+        newDef = existingDef + 1;
+    }
+
+    CSOEconItem &newItem = CreateItem(newDef, ItemOriginBaseItem, UnacknowledgedEarned);
+
+    // Атрибуты (prestige year, pedestal display model) уже задаются prefab'ом
+    // prestige_coin из items_game.txt, дополнительно ничего добавлять не надо.
+
+    newItemId = newItem.id();
+    ToSingleObject(create, newItem);
+
+    if (existingId != 0)
+    {
+        auto old = m_items.find(existingId);
+        if (old != m_items.end())
+        {
+            DestroyItem(old, destroy);
+        }
+    }
+
+    notification.add_item_id(newItem.id());
+    notification.set_request(k_EGCItemCustomizationNotification_ActivateOperationCoin);
+
+    WriteToFile();
+    Platform::Print("GrantPrestigeCoin: granted def=%u (was def=%u)\n", newDef, existingDef);
+    return true;
+}
+
 // mikkotodo constant enum
 static int ItemWearLevel(float wearFloat)
 {
