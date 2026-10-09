@@ -244,6 +244,26 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             OnGetEventFavorites(messageRead);
             break;
 
+        case k_EMsgGCCStrike15_v2_Party_Register:
+            OnPartyRegister(messageRead);
+            break;
+
+        case k_EMsgGCCStrike15_v2_Party_Unregister:
+            OnPartyUnregister(messageRead);
+            break;
+
+        case k_EMsgGCCStrike15_v2_Party_Invite:
+            OnPartyInvite(messageRead);
+            break;
+
+        case k_EMsgGCCStrike15_v2_ClientPartyJoinRelay:
+            OnClientPartyJoinRelay(messageRead);
+            break;
+
+        case k_EMsgGCCStrike15_v2_ClientPartyWarning:
+            OnClientPartyWarning(messageRead);
+            break;
+
         default:
             Platform::Print("ClientGC::HandleMessage: unhandled protobuf message %s\n",
                 MessageName(messageRead.TypeUnmasked()));
@@ -1677,4 +1697,132 @@ void ClientGC::SendVerdictToCloudflare(const CMsgGCCStrike15_v2_PlayerOverwatchC
 uint32_t ClientGC::EffectiveAccountId() const
 {
     return AccountId(); // TODO: remove this function (im too lazy)
+}
+
+void ClientGC::OnPartyRegister(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Party_Register message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Failed to parse Party_Register\n");
+        return;
+    }
+
+    m_partyLobby.lobbyId = message.id();
+    m_partyLobby.ver = message.ver();
+    m_partyLobby.gameType = message.game_type();
+    m_partyLobby.launcher = message.launcher();
+    m_partyLobby.hostAccountId = EffectiveAccountId();
+    m_partyLobby.active = true;
+
+    if (m_partyLobby.memberAccountIds.empty())
+    {
+        m_partyLobby.memberAccountIds.push_back(EffectiveAccountId());
+    }
+
+    Platform::Print("Party_Register: lobby=%u host=%u game_type=%u\n",
+        m_partyLobby.lobbyId, m_partyLobby.hostAccountId, m_partyLobby.gameType);
+}
+
+void ClientGC::OnPartyUnregister(GCMessageRead &messageRead)
+{
+    Platform::Print("Party_Unregister: lobby=%u\n", m_partyLobby.lobbyId);
+    m_partyLobby = PartyLobby{};
+}
+
+void ClientGC::OnPartyInvite(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Party_Invite message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Failed to parse Party_Invite\n");
+        return;
+    }
+
+    // Инвайт отправляется в адрес другого клиента.
+    // Пересылаем через P2P — регистрируем это в NetworkingParty.
+    PostToHost(HostEvent::PartyInvite, message.accountid(), &message.lobbyid(), sizeof(uint32_t));
+
+    Platform::Print("Party_Invite → account %u (lobby %u)\n",
+        message.accountid(), message.lobbyid());
+}
+
+void ClientGC::OnClientPartyJoinRelay(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientPartyJoinRelay message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Failed to parse ClientPartyJoinRelay\n");
+        return;
+    }
+
+    // Клиент подтвердил вступление в лобби — надо уведомить хоста.
+    PostToHost(HostEvent::PartyJoinRelay, message.accountid(), &message.lobbyid(), sizeof(uint64_t));
+    Platform::Print("ClientPartyJoinRelay → host account %u\n", message.accountid());
+}
+
+void ClientGC::OnClientPartyWarning(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientPartyWarning message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Failed to parse ClientPartyWarning\n");
+        return;
+    }
+
+    for (int i = 0; i < message.entries_size(); i++)
+    {
+        const auto &e = message.entries(i);
+        Platform::Print("PartyWarning: account %u warntype %u\n", e.accountid(), e.warntype());
+    }
+}
+
+void ClientGC::OnRemotePartyInvite(uint32_t fromAccountId, uint32_t lobbyId, uint32_t gameType)
+{
+    // Прилетел инвайт от другого эмулятора. Отдаём клиенту уведомление.
+    CMsgInvitationCreated notification;
+    notification.set_group_id(lobbyId);
+    notification.set_steam_id(CSteamID(fromAccountId, k_EUniversePublic, k_EAccountTypeIndividual).ConvertToUint64());
+
+    SendMessageToGame(false, k_EMsgGCInvitationCreated, notification);
+
+    Platform::Print("Remote invite from %u to lobby %u (game_type %u)\n",
+        fromAccountId, lobbyId, gameType);
+}
+
+void ClientGC::OnRemoteJoinRelay(uint32_t fromAccountId, uint32_t lobbyId)
+{
+    if (!m_partyLobby.active || m_partyLobby.lobbyId != lobbyId)
+    {
+        Platform::Print("Remote join relay for unknown lobby %u (mine %u)\n",
+            lobbyId, m_partyLobby.lobbyId);
+        return;
+    }
+
+    if (std::find(m_partyLobby.memberAccountIds.begin(),
+                  m_partyLobby.memberAccountIds.end(),
+                  fromAccountId) == m_partyLobby.memberAccountIds.end())
+    {
+        m_partyLobby.memberAccountIds.push_back(fromAccountId);
+        Platform::Print("Added member %u to lobby %u\n", fromAccountId, lobbyId);
+    }
+
+    // Разослать обновлённый состав
+    std::vector<uint32_t> members = m_partyLobby.memberAccountIds;
+    for (uint32_t member : members)
+    {
+        if (member == EffectiveAccountId()) continue;
+        PostToHost(HostEvent::PartyLobbyUpdate, member, members.data(), members.size() * sizeof(uint32_t));
+    }
+}
+
+void ClientGC::OnRemoteLobbyUpdate(uint32_t /*fromAccountId*/, uint32_t lobbyId,
+    const std::vector<uint32_t> &members)
+{
+    if (!m_partyLobby.active || m_partyLobby.lobbyId != lobbyId)
+    {
+        return;
+    }
+    m_partyLobby.memberAccountIds = members;
+    Platform::Print("Lobby %u updated: %zu members\n", lobbyId, members.size());
 }
