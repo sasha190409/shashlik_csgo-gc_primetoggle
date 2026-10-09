@@ -38,6 +38,12 @@ public:
         CMsgSOSingleObject &newItem,
         CMsgGCItemCustomizationNotification &notification);
 
+    bool GrantPrestigeCoin(
+    uint64_t &newItemId,
+    CMsgSOSingleObject &create,
+    CMsgSOSingleObject &destroy,
+    CMsgGCItemCustomizationNotification &notification);
+
     bool SetItemPositions(
         const CMsgSetItemPositions &message,
         std::vector<CMsgItemAcknowledged> &acknowledgements,
