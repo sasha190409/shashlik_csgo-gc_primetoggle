@@ -27,6 +27,7 @@ public:
     void CheckFileReloads();
 
     uint64_t GetSteamId() const { return m_steamId; }   // now public
+    uint32_t GetAccountId() const { return m_steamId & 0xffffffff; }
 
     // Overwatch HTTP callback
     void OnOverwatchHTTPResponse(HTTPRequestCompleted_t *pCallback);
