@@ -599,6 +599,14 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
             message.set_penalty_reason(6);
         }
     }
+    if (GetConfig().HasPrime() && GetConfig().CompetitiveRank() != RankNone)
+    {
+        PlayerRankingInfo *ranking = message.mutable_ranking();
+        ranking->set_account_id(EffectiveAccountId());
+        ranking->set_rank_id(GetConfig().CompetitiveRank());
+        ranking->set_wins(GetConfig().CompetitiveWins());
+        ranking->set_rank_type_id(RankTypeCompetitive);
+    }
 }
 
 void ClientGC::BuildClientWelcome(CMsgClientWelcome &message, const CMsgCStrike15Welcome &csWelcome,
