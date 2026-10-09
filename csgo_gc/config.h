@@ -14,6 +14,10 @@ class GCConfig
 public:
     GCConfig();
     void ReloadFromFile();
+
+    // write config.txt back to disk with the current values of level/xp
+    void Save() const;
+
     // options used by steam hook
     uint32_t AppIdOverride() const { return m_appIdOverride; }
     bool ShowCsgoGCServersOnly() const { return m_showCsgoGCServersOnly; }
@@ -38,6 +42,10 @@ public:
     int CommendedLeader() const { return m_commendedLeader; }
     int Level() const { return m_level; }
     int Xp() const { return m_xp; }
+
+    // setters for level/xp (used on prestige)
+    void SetLevel(int level) { m_level = level; }
+    void SetXp(int xp) { m_xp = xp; }
 
     std::string Country() const { return m_country; }
     int Currency() const { return m_currency; }
