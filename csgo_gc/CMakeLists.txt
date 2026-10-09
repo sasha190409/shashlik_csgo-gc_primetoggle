@@ -14,6 +14,7 @@ add_library(csgo_gc SHARED
     keyvalue.cpp
     main.cpp
     networking_client.cpp
+    networking_party.cpp
     networking_server.cpp
     steam_hook.cpp)
 
@@ -45,7 +46,6 @@ target_link_libraries(csgo_gc PRIVATE
     libprotobuf-lite
     steam_api)
 
-# apple message box
 if (APPLE)
     target_link_libraries(csgo_gc PRIVATE "-framework Foundation")
 endif()
