@@ -87,7 +87,34 @@ public:
         KeyValue &subkey = AddSubkey(name);
         subkey.m_string = std::to_string(value);
     }
-    
+
+    // ------------------------------------------------------------------------
+    // update-or-insert helpers (used by GCConfig::Save)
+    // ------------------------------------------------------------------------
+
+    template<typename T>
+    void SetNumber(std::string_view name, T value)
+    {
+        KeyValue *subkey = FindOrCreateSubkey(name);
+        if constexpr (std::is_enum<T>::value)
+        {
+            subkey->m_string = std::to_string(
+                static_cast<typename std::underlying_type<T>::type>(value));
+        }
+        else
+        {
+            subkey->m_string = std::to_string(value);
+        }
+        subkey->m_subkeys.clear();
+    }
+
+    void SetString(std::string_view name, std::string_view value)
+    {
+        KeyValue *subkey = FindOrCreateSubkey(name);
+        subkey->m_string = value;
+        subkey->m_subkeys.clear();
+    }
+
 private:
     bool Parse(KeyValueParser &parser);
     KeyValue *FindOrCreateSubkey(std::string_view name);
