@@ -1304,7 +1304,7 @@ static void Hk_SteamAPI_RunCallbacks()
                 break;
 
             case HostEvent::NetMessage:
-                s_clientGC->m_networking.SendMessage(buffer.data(), static_cast<uint32_t>(buffer.size()));
+                s_clientGC->m_networking.SendNetMessage(buffer.data(), static_cast<uint32_t>(buffer.size()));
                 break;
 
             case HostEvent::MicroTransactionResponse:
@@ -1319,7 +1319,7 @@ static void Hk_SteamAPI_RunCallbacks()
                 {
                     memcpy(&lobbyId, buffer.data(), sizeof(uint32_t));
                 }
-                const uint32_t fromAccountId = s_clientGC->m_gc.EffectiveAccountId();
+                const uint32_t fromAccountId = static_cast<uint32_t>(s_clientGC->m_gc.GetSteamId());
                 const uint32_t gameType = s_clientGC->m_gc.GetPartyLobby().gameType;
 
                 if (s_clientGC->m_party)
@@ -1337,7 +1337,7 @@ static void Hk_SteamAPI_RunCallbacks()
                 {
                     memcpy(&lobbyId, buffer.data(), sizeof(uint32_t));
                 }
-                const uint32_t fromAccountId = s_clientGC->m_gc.EffectiveAccountId();
+                const uint32_t fromAccountId = static_cast<uint32_t>(s_clientGC->m_gc.GetSteamId());
 
                 if (s_clientGC->m_party)
                 {
