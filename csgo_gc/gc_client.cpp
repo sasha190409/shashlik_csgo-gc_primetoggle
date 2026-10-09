@@ -95,8 +95,18 @@ void ClientGC::OnMatchmakingStart(GCMessageRead &messageRead)
         m_isCooldownActive = true;
         m_cooldownEndTime = std::chrono::steady_clock::now() + std::chrono::seconds(cooldown);
 
+        // 1) Tell the client to stop the search animation.
         SendMatchmakingUpdate();
+
+        // 2) Refresh MatchmakingHello so penalty_seconds/penalty_reason
+        //    reflect the just-started cooldown. Without this, the main menu
+        //    keeps the Play button enabled and the client never knows the
+        //    account is on cooldown.
+        SendMatchmakingHelloUpdate();
+
+        // 3) Push the popup notification with the initial cooldown length.
         SendCompetitiveCooldown();
+
         Platform::Print("Blocked matchmaking: Cooldown active (%u seconds)\n", cooldown);
         return;
     }
@@ -230,32 +240,26 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             OnClientReportValidation(messageRead);
             break;
 
-        // Secure mode: client responds to our GC2ClientInitSystem
         case k_EMsgGCCStrike15_v2_GC2ClientInitSystem_Response:
             OnClientInitSystemResponse(messageRead);
             break;
 
-        // Account privacy settings
         case k_EMsgGCCStrike15_v2_AccountPrivacySettings:
             OnAccountPrivacySettings(messageRead);
             break;
 
-        // Souvenir request
         case k_EMsgGCCStrike15_v2_ClientRequestSouvenir:
             OnClientRequestSouvenir(messageRead);
             break;
 
-        // NEW: penalty acknowledgement
         case k_EMsgGCCStrike15_v2_AcknowledgePenalty:
             OnAcknowledgePenalty(messageRead);
             break;
 
-        // NEW: leaderboard safe name
         case k_EMsgGCCStrike15_v2_SetPlayerLeaderboardSafeName:
             OnSetPlayerLeaderboardSafeName(messageRead);
             break;
 
-        // NEW: reports / commend
         case k_EMsgGCCStrike15_v2_ClientReportPlayer:
             OnClientReportPlayer(messageRead);
             break;
@@ -268,12 +272,10 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             OnClientCommendPlayer(messageRead);
             break;
 
-        // NEW: activity info (no proto definition available)
         case k_EMsgGCCStrike15_v2_SetMyActivityInfo:
             OnSetMyActivityInfo(messageRead);
             break;
 
-        // NEW: global chat
         case k_EMsgGCCStrike15_v2_GlobalChat:
             OnClientToGCChat(messageRead);
             break;
@@ -286,7 +288,6 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             OnGlobalChatUnsubscribe(messageRead);
             break;
 
-        // NEW: MatchList requests (empty responses)
         case k_EMsgGCCStrike15_v2_MatchListRequestCurrentLiveGames:
             OnMatchListRequestCurrentLiveGames(messageRead);
             break;
@@ -383,7 +384,12 @@ void ClientGC::UpdateCooldown()
     auto now = std::chrono::steady_clock::now();
     if (now >= m_cooldownEndTime) {
         m_isCooldownActive = false;
+
+        // Tell the client that the cooldown is over: Hello without
+        // penalty_seconds + zero-length notification.
+        SendMatchmakingHelloUpdate();
         SendCompetitiveCooldown();
+
         Platform::Print("Competitive cooldown expired.\n");
     }
 }
@@ -577,6 +583,22 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
     message.mutable_commendation()->set_cmd_leader(GetConfig().CommendedLeader());
     message.set_player_level(GetConfig().Level());
     message.set_player_cur_xp(GetConfig().Xp());
+
+    // Cooldown state. This is what actually makes the client disable the
+    // Play button and show the "cooldown" UI. The ServerNotificationForUserPenalty
+    // only fires the initial popup; the persistent state lives here.
+    if (m_isCooldownActive)
+    {
+        auto remaining = std::chrono::duration_cast<std::chrono::seconds>(
+            m_cooldownEndTime - std::chrono::steady_clock::now()).count();
+        if (remaining > 0)
+        {
+            message.set_penalty_seconds(static_cast<uint32_t>(remaining));
+            // reason 6 = abandon (as seen in the wild). Change here if a
+            // different cooldown reason is needed.
+            message.set_penalty_reason(6);
+        }
+    }
 }
 
 void ClientGC::BuildClientWelcome(CMsgClientWelcome &message, const CMsgCStrike15Welcome &csWelcome,
@@ -719,7 +741,6 @@ void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
 
     CMsgSOMultipleObjects update;
 
-    // T side: class id 2
     for (int i = 0; i < message.t_equips_size(); i++)
     {
         uint64_t itemId = message.t_equips(i);
@@ -739,7 +760,6 @@ void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
         m_inventory.EquipItem(itemId, 2, slot, update);
     }
 
-    // CT side: class id 3
     for (int i = 0; i < message.ct_equips_size(); i++)
     {
         uint64_t itemId = message.ct_equips(i);
@@ -759,7 +779,6 @@ void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
         m_inventory.EquipItem(itemId, 3, slot, update);
     }
 
-    // noteam: class id 0
     for (int i = 0; i < message.noteam_equips_size(); i++)
     {
         uint64_t itemId = message.noteam_equips(i);
@@ -786,7 +805,7 @@ void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
 }
 
 // ============================================================================
-// #1 AcknowledgePenalty
+// AcknowledgePenalty
 // ============================================================================
 
 void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
@@ -799,12 +818,10 @@ void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
     }
 
     Platform::Print("AcknowledgePenalty: acknowledged=%d\n", message.acknowledged());
-    // The cooldown itself is still active on our side; we only clear the
-    // "unseen" flag on the client.
 }
 
 // ============================================================================
-// #2 SetPlayerLeaderboardSafeName
+// SetPlayerLeaderboardSafeName
 // ============================================================================
 
 void ClientGC::OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead)
@@ -821,7 +838,7 @@ void ClientGC::OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead)
 }
 
 // ============================================================================
-// #3 Reports / Commend
+// Reports / Commend
 // ============================================================================
 
 static uint64_t MakeReportConfirmationId()
@@ -900,19 +917,17 @@ void ClientGC::OnClientCommendPlayer(GCMessageRead &messageRead)
 }
 
 // ============================================================================
-// #4 SetMyActivityInfo
+// SetMyActivityInfo
 // ============================================================================
 
 void ClientGC::OnSetMyActivityInfo(GCMessageRead &messageRead)
 {
-    // The proto file we have does not include a message definition for this
-    // type, so we cannot parse the payload. Just log that it was received.
     (void)messageRead;
     Platform::Print("ClientGC: received SetMyActivityInfo (unparsed)\n");
 }
 
 // ============================================================================
-// #5 Global chat
+// Global chat
 // ============================================================================
 
 void ClientGC::OnGlobalChatSubscribe(GCMessageRead &messageRead)
@@ -945,7 +960,7 @@ void ClientGC::OnClientToGCChat(GCMessageRead &messageRead)
 }
 
 // ============================================================================
-// #7/#8 MatchList / Watch — empty responses
+// MatchList / Watch — empty responses
 // ============================================================================
 
 void ClientGC::SendEmptyMatchList(uint32_t requestId, uint32_t accountId)
@@ -1147,7 +1162,6 @@ void ClientGC::OnClientHello(GCMessageRead &messageRead)
     }
 
     // If config has "error", reply with ClientLogonFatalError and stop.
-    // The client will show the popup and not proceed to the main menu.
     const std::string &err = GetConfig().Error();
     if (!err.empty() && !m_fatalErrorSent)
     {
@@ -1177,13 +1191,7 @@ void ClientGC::OnClientHello(GCMessageRead &messageRead)
 
     SendRankUpdate();
 
-    // Kick off secure-mode handshake.
     SendInitSystem();
-
-    uint32_t cooldown = GetConfig().CompetitiveCooldownSeconds();
-    if (cooldown > 0) {
-        SendCompetitiveCooldown();
-    }
 }
 
 void ClientGC::AdjustItemEquippedState(GCMessageRead &messageRead)
@@ -1879,6 +1887,7 @@ void ClientGC::ReloadConfig()
 {
     GetConfig().ReloadFromFile();
     SendRankUpdate();
+    SendMatchmakingHelloUpdate();
 }
 
 void ClientGC::ReloadPriceSheet()
