@@ -557,27 +557,89 @@ void ClientGC::OnClientReportValidation(GCMessageRead &messageRead)
         return;
     }
 
-    // Просто логируем то, что прислал клиент. Ответ не требуется.
+    // Локальная лямбда: печатает длинную строку, разбивая её на куски по 252 символа.
+    // Префикс повторяется на каждой строке, чтобы понимать, где продолжение.
+    auto PrintLongString = [](const char *prefix, std::string_view str)
+    {
+        constexpr size_t MaxLine = 252;
+
+        if (str.empty())
+        {
+            Platform::Print("%s<empty>\n", prefix);
+            return;
+        }
+
+        size_t offset = 0;
+        while (offset < str.size())
+        {
+            size_t chunk = std::min(MaxLine, str.size() - offset);
+            Platform::Print("%.*s%.*s\n",
+                static_cast<int>(strlen(prefix)), prefix,
+                static_cast<int>(chunk), str.data() + offset);
+            offset += chunk;
+        }
+    };
+
+    Platform::Print("[Validation] ============================================\n");
     Platform::Print("[Validation] status_id: %u | total_files: %u | client_version: %u | trust_time: %u\n",
         message.status_id(),
         message.total_files(),
         message.clientreportversion(),
         message.trust_time());
-    
+
+    Platform::Print("[Validation] internal_error: %u | count_pending: %u | count_completed: %u | process_id: %u\n",
+        message.internal_error(),
+        message.count_pending(),
+        message.count_completed(),
+        message.process_id());
+
+    Platform::Print("[Validation] osversion: %d | report_count: %u | client_time: %llu\n",
+        message.osversion(),
+        message.report_count(),
+        static_cast<unsigned long long>(message.client_time()));
+
+    Platform::Print("[Validation] diagnostic1: %u | diagnostic2: %llu | diagnostic3: %llu\n",
+        message.diagnostic1(),
+        static_cast<unsigned long long>(message.diagnostic2()),
+        static_cast<unsigned long long>(message.diagnostic3()));
+
+    Platform::Print("[Validation] diagnostic4: %llu | diagnostic5: %llu\n",
+        static_cast<unsigned long long>(message.diagnostic4()),
+        static_cast<unsigned long long>(message.diagnostic5()));
+
+    if (!message.command_line().empty())
+    {
+        PrintLongString("[Validation] command_line: ", message.command_line());
+    }
+
+    if (!message.last_launch_data().empty())
+    {
+        PrintLongString("[Validation] last_launch_data: ", message.last_launch_data());
+    }
+
     if (!message.file_report().empty())
     {
-        // Логируем первые 128 символов отчёта, чтобы не засрать консоль
-        Platform::Print("[Validation] file_report (truncated): %.128s...\n", message.file_report().c_str());
+        Platform::Print("[Validation] file_report (size=%zu):\n", message.file_report().size());
+        PrintLongString("[Validation]   ", message.file_report());
     }
-    
-    // Если есть диагностика, её тоже можно вывести
+
     for (int i = 0; i < message.diagnostics_size(); i++)
     {
         const CVDiagnostic &diag = message.diagnostics(i);
-        Platform::Print("[Validation] Diag id: %u, string: %s\n", diag.id(), diag.string_value().c_str());
-    }
-}
+        Platform::Print("[Validation] Diag[%d] id: %u | extended: %u | value: %llu\n",
+            i,
+            diag.id(),
+            diag.extended(),
+            static_cast<unsigned long long>(diag.value()));
 
+        if (!diag.string_value().empty())
+        {
+            PrintLongString("[Validation]   string: ", diag.string_value());
+        }
+    }
+
+    Platform::Print("[Validation] ============================================\n");
+}
 void ClientGC::OnGetEventFavorites(GCMessageRead &messageRead)
 {
     CMsgGCCStrike15_v2_GetEventFavorites_Request request;
