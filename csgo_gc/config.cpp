@@ -62,6 +62,10 @@ void GCConfig::Parse(const KeyValue& config)
 
     m_country = config.GetString("country", m_country);
     m_currency = config.GetNumber("currency", m_currency);
+
+    // fatal error string, shown by the client in a popup instead of ClientWelcome
+    m_error = config.GetString("error", m_error);
+
     if (!m_hasPrime)
     {
         m_competitiveRank = RankNone;
