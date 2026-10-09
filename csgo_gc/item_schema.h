@@ -185,7 +185,11 @@ public:
         ItemSpray = 1348,
         ItemSprayPaint = 1349,
         ItemPatch = 4609,
-        ItemCasket = 1201
+        ItemCasket = 1201,
+    
+        // prestige coins for 2023
+        ItemPrestigeCoinMin = 4873,
+        ItemPrestigeCoinMax = 4878,
     };
 
     enum Attribute
