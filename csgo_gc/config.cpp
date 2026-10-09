@@ -95,23 +95,93 @@ void GCConfig::ReloadFromFile()
     Parse(config);
 }
 
+// Helper: find `"key"` in a line, then the next quoted string after it,
+// and replace its contents in-place. Preserves indentation, tabs, trailing
+// comments, etc.
+static bool ReplaceQuotedValueInLine(std::string &line, std::string_view key, std::string_view newValue)
+{
+    const std::string needle = "\"" + std::string(key) + "\"";
+
+    size_t keyPos = line.find(needle);
+    if (keyPos == std::string::npos)
+        return false;
+
+    size_t valStart = line.find('"', keyPos + needle.size());
+    if (valStart == std::string::npos)
+        return false;
+
+    size_t valEnd = line.find('"', valStart + 1);
+    if (valEnd == std::string::npos)
+        return false;
+
+    line.replace(valStart + 1, valEnd - valStart - 1, newValue);
+    return true;
+}
+
 void GCConfig::Save() const
 {
-    // Read the current file so that all fields we don't touch (appid_override,
-    // rarity_weights, friends, ...) survive the round-trip. If the file does
-    // not exist, ParseFromFile returns false and we just start with an empty
-    // root and write the two fields below.
-    KeyValue config{ "config" };
-    config.ParseFromFile(ConfigFilePath);
+    // Load the file as plain text so we keep comments, tabs, blank lines,
+    // and key ordering intact. We only rewrite two values in-place.
+    std::string data = LoadFile(ConfigFilePath);
 
-    config.SetNumber("player_level", m_level);
-    config.SetNumber("player_cur_xp", m_xp);
+    bool foundLevel = false;
+    bool foundXp = false;
 
-    if (!config.WriteToFile(ConfigFilePath))
+    std::string out;
+    out.reserve(data.size() + 64);
+
+    size_t pos = 0;
+    while (pos < data.size())
     {
-        Platform::Print("GCConfig::Save: failed to write %s\n", ConfigFilePath);
+        size_t eol = data.find('\n', pos);
+        bool hasNewline = (eol != std::string::npos);
+        if (!hasNewline)
+            eol = data.size();
+
+        std::string line = data.substr(pos, eol - pos);
+
+        if (!foundLevel && ReplaceQuotedValueInLine(line, "player_level", std::to_string(m_level)))
+        {
+            foundLevel = true;
+        }
+        else if (!foundXp && ReplaceQuotedValueInLine(line, "player_cur_xp", std::to_string(m_xp)))
+        {
+            foundXp = true;
+        }
+
+        out += line;
+        if (hasNewline)
+            out += '\n';
+
+        pos = eol + (hasNewline ? 1 : 0);
+    }
+
+    // If either key was missing from the file, insert it just before the
+    // last closing brace so it still lives inside the "config" block.
+    if (!foundLevel || !foundXp)
+    {
+        std::string insert;
+        if (!foundLevel)
+            insert += "\t\"player_level\"\t\t\"" + std::to_string(m_level) + "\"\n";
+        if (!foundXp)
+            insert += "\t\"player_cur_xp\"\t\t\"" + std::to_string(m_xp) + "\"\n";
+
+        size_t closePos = out.rfind('}');
+        if (closePos != std::string::npos)
+            out.insert(closePos, insert);
+        else
+            out += insert; // no closing brace? just append
+    }
+
+    FILE *f = fopen(ConfigFilePath, "wb");
+    if (!f)
+    {
+        Platform::Print("GCConfig::Save: failed to open %s for writing\n", ConfigFilePath);
         return;
     }
+
+    fwrite(out.data(), 1, out.size(), f);
+    fclose(f);
 
     Platform::Print("config.txt updated: player_level=%d player_cur_xp=%d\n", m_level, m_xp);
 }
