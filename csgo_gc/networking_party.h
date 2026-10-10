@@ -7,10 +7,10 @@
 
 class ClientGC;
 
-// Отдельный канал от игрового (NetMessageChannel=7), чтобы не мешать.
+// separate channel from the game one (NetMessageChannel=7) so they don't clash
 constexpr int PartyChannel = 8;
 
-// Внутренние типы сообщений для P2P-party.
+// internal message types for p2p party
 enum EPartyInternalMsg : uint32_t
 {
     k_EMsgPartyInviteRemote      = 0x60000001,
@@ -36,7 +36,7 @@ class NetworkingParty
 public:
     explicit NetworkingParty(ISteamNetworkingMessages *networkingMessages);
 
-    // Вызывается из RunCallbacks.
+    // called from RunCallbacks
     void Update(ClientGC *gc);
 
     void SendInvite(uint32_t targetAccountId, uint32_t fromAccountId,

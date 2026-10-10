@@ -71,7 +71,7 @@ ItemInfo::ItemInfo(uint32_t defIndex)
     , m_isCoupon{ false }
     , m_willProduceStatTrak{ false }
 {
-    // RecursiveParseItem parses the rest
+    // recursiveParseItem parses the rest
 }
 
 PaintKitInfo::PaintKitInfo(const KeyValue &key)
@@ -117,7 +117,7 @@ void ItemSchema::ApplyMaxRarityFilter()
     {
         LootList& list = pair.second;
 
-        // Рекурсивно собираем все предметы из текущего списка и всех подсписков
+        // recursively collect all items from the current list and all sublists
         std::vector<LootListItem> allItems;
         std::function<void(const LootList&)> collect = [&](const LootList& current) {
             for (const auto& item : current.items)
@@ -130,7 +130,7 @@ void ItemSchema::ApplyMaxRarityFilter()
         if (allItems.empty())
             continue;
 
-        // 1. Находим максимальную редкость
+        // 1. find the maximum rarity
         uint32_t maxRarity = 0;
         for (const auto& item : allItems) {
             uint32_t rarity = item.CaseRarity();
@@ -138,14 +138,14 @@ void ItemSchema::ApplyMaxRarityFilter()
                 maxRarity = rarity;
         }
 
-        // 2. Оставляем только предметы с максимальной редкостью
+        // 2. keep only items with the maximum rarity
         std::vector<LootListItem> filtered;
         for (const auto& item : allItems) {
             if (item.CaseRarity() == maxRarity)
                 filtered.push_back(item);
         }
 
-        // 3. Если осталось меньше 2 предметов, добавляем предметы следующей редкости
+        // 3. if fewer than 2 items remain, add items of the next rarity
         if (filtered.size() < 2) {
             uint32_t nextRarity = 0;
             for (const auto& item : allItems) {
@@ -163,7 +163,7 @@ void ItemSchema::ApplyMaxRarityFilter()
             }
         }
 
-        // 4. Заменяем список и очищаем подсписки (мы уже собрали все предметы)
+        // 4. replace the list and clear sublists (we already collected everything)
         list.items = std::move(filtered);
         list.subLists.clear();
     }

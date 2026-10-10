@@ -101,16 +101,16 @@ uint32_t CaseOpening::RandomRarityForItems(const std::vector<const LootListItem 
     // MUST have items and they MUST be sorted
     assert(items.size() && std::is_sorted(items.begin(), items.end(), CompareRarity));
 
-    // --- НОВАЯ ЛОГИКА ---
+    // new logic
     if (GetConfig().ForceMaxRarity())
     {
-        // items отсортированы по возрастанию редкости (чем больше число, тем реже)
-        // берём редкость последнего элемента – это максимум
+        // items are sorted by ascending rarity, higher number = rarer
+        // take the rarity of the last element, that's the maximum
         uint32_t maxRarity = items.back()->CaseRarity();
         return maxRarity;
     }
 
-    // --- СТАРАЯ ЛОГИКА (взвешенный случайный выбор) ---
+    // old logic (weighted random selection)
     std::vector<RarityWeight> weights;
     weights.reserve(items.size());
     float totalWeight = 0;

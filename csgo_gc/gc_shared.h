@@ -7,7 +7,7 @@ enum class HostEvent
     Message, // id contains the message type, buffer contains the payload
     NetMessage, // id contains the recipient steam id, buffer contains the payload
     MicroTransactionResponse, // runs MicroTxnAuthorizationResponse_t, no arguments
-    PartyInvite,        // id = target account_id, buffer = uint32 lobbyId (gameType берётся из GetPartyLobby)
+    PartyInvite,        // id = target account_id, buffer = uint32 lobbyId (gameType is from GetPartyLobby)
     PartyJoinRelay,     // id = host account_id, buffer = uint32 lobbyId
     PartyLobbyUpdate,   // id = member account_id, buffer = uint32[] members
 };

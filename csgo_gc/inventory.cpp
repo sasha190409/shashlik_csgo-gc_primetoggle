@@ -104,8 +104,8 @@ const CSOEconItem* Inventory::GetItem(uint64_t itemId) const
 
 CSOEconItem &Inventory::AllocateItem(uint32_t highItemId)
 {
-    // Players fuck up their inventory files constantly and end up with item id collisions...
-    // This doesn't return until the item id is unique for this session, try with the provided
+    // players fuck up their inventory files constantly and end up with item id collisions...
+    // this doesn't return until the item id is unique for this session, try with the provided
     // item id first, if it's invalid or already in use increment it
 
     if (!highItemId)
@@ -367,7 +367,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, int level
         else
         {
             accountClient.set_elevated_state(ElevatedStateNo);
-            accountClient.set_elevated_timestamp(ElevatedStateNo); // или 0, если не prime
+            accountClient.set_elevated_timestamp(ElevatedStateNo); // or 0, if not prime
         }
 
         CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
@@ -394,13 +394,12 @@ constexpr uint64_t ItemIdInvalid = 0;
 // also i think this is the way valve gc does it???? can't remember
 bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CMsgSOMultipleObjects &update)
 {
-    // --- NEW: Handle "Equip for both teams" ---
+    // handle "equip for both teams"
     if (classId == 0)
     {
-        // Split into T (1) and CT (2). 
-        // Note: If your client uses different class IDs for teams, adjust 1 and 2 below.
-        bool success1 = EquipItem(itemId, 1, slotId, update); // Terrorist
-        bool success2 = EquipItem(itemId, 2, slotId, update); // Counter-Terrorist
+        // split into ct and t
+        bool success1 = EquipItem(itemId, 1, slotId, update); // terrorist
+        bool success2 = EquipItem(itemId, 2, slotId, update); // counter-terrorist
         return success1 || success2;
     }
 
@@ -450,7 +449,7 @@ bool Inventory::EquipItem(uint64_t itemId, uint32_t classId, uint32_t slotId, CM
         }
 
         // if an item is equipped in this slot, unequip it first
-        // --- FIX: Pass itemId to exclude it from the unequip update ---
+        // fix: pass itemId to exclude it from the unequip update
         UnequipItem(classId, slotId, update, itemId);
 
         Platform::Print("EquipItem %llu class %d slot %d\n", itemId, classId, slotId);
@@ -559,7 +558,7 @@ bool Inventory::UnlockCrate(uint64_t crateId,
         return false;
     }
 
-    // CASE OPENING
+    // case opening
     CaseOpening caseOpening{ m_itemSchema, m_random };
 
     CSOEconItem temp;
@@ -601,7 +600,7 @@ bool Inventory::GrantPrestigeCoin(
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    // Ищем существующую монету среди 4873..4878
+    // look for an existing coin among 4873..4878
     uint64_t existingId  = 0;
     uint32_t existingDef = 0;
     for (const auto &pair : m_items)
@@ -619,12 +618,12 @@ bool Inventory::GrantPrestigeCoin(
     uint32_t newDef;
     if (existingId == 0)
     {
-        // Первое получение — уровень 1
+        // first grant - level 1
         newDef = ItemSchema::ItemPrestigeCoinMin;
     }
     else if (existingDef >= ItemSchema::ItemPrestigeCoinMax)
     {
-        // Уже максимальный уровень
+        // already at max level
         return false;
     }
     else
@@ -634,8 +633,8 @@ bool Inventory::GrantPrestigeCoin(
 
     CSOEconItem &newItem = CreateItem(newDef, ItemOriginBaseItem, UnacknowledgedEarned);
 
-    // Атрибуты (prestige year, pedestal display model) уже задаются prefab'ом
-    // prestige_coin из items_game.txt, дополнительно ничего добавлять не надо.
+    // attributes (prestige year, pedestal display model) are already set by the
+    // prestige_coin prefab from items_game.txt; nothing extra to add.
 
     newItemId = newItem.id();
     ToSingleObject(create, newItem);
@@ -1501,7 +1500,7 @@ void Inventory::UnequipItem(uint32_t classId, uint32_t slotId, CMsgSOMultipleObj
     // check non default items first
     for (auto &pair : m_items)
     {
-        // --- FIX: Skip the item we are about to equip ---
+        // fix: skip the item we are about to equip
         if (pair.first == excludeItemId) 
             continue; 
 
@@ -1569,17 +1568,17 @@ void Inventory::ReloadFromFile()
 
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    // Snapshot the IDs of all items that currently exist in memory
+    // snapshot the ids of all items that currently exist in memory
     std::unordered_set<uint64_t> oldItemIds;
     for (const auto& pair : m_items)
         oldItemIds.insert(pair.first);
 
-    // Now safe to clear everything
+    // now safe to clear everything
     m_items.clear();
     m_defaultEquips.clear();
     m_lastHighItemId = 0;
 
-    // Re‑read the file
+    // re-read the file
     KeyValue inventoryKey{ "inventory" };
     if (!inventoryKey.ParseFromFile(InventoryFilePath))
         return;
@@ -1594,7 +1593,7 @@ void Inventory::ReloadFromFile()
             CSOEconItem& item = AllocateItem(highItemId);
             ReadItem(itemKey, item);
 
-            // Mark as "new" ONLY if this item wasn't already in memory before the reload
+            // mark as "new" only if this item wasn't already in memory before the reload
             if (oldItemIds.find(item.id()) == oldItemIds.end())
             {
                 const uint32_t unackMask = 1u << 30;

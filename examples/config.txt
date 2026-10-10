@@ -1,58 +1,115 @@
-// all of these should be quite self-explanatory
+// csgo_gc config.txt
+// KeyValues format like items_game.txt
+// Top level has no wrapper
+// Changes are picked up on the fly CheckFileReloads once per frame
+
+// RANKS AND PROFILE
+// All ranks are optional
+// If has_prime is 0 ranks level and XP are reset
+
 "ranks"
 {
-	"competitive_rank"	"18"
-	"competitive_wins"	"666"
-	"wingman_rank"	"18"
-	"wingman_wins"	"777"
-	"dangerzone_rank"	"15"
-	"dangerzone_wins"	"888"
+    // Competitive 0 means none 1 means Silver 1 ... 18 means Global Elite
+    "competitive_rank"    "18"
+    "competitive_wins"    "100"
+
+    // Wingman 0 means none 1 means Silver 1 ... 18 means Global Elite
+    "wingman_rank"        "18"
+    "wingman_wins"        "200"
+
+    // Danger Zone 0 means none 1 means Rat 1 ... 16 means Howling Alpha
+    "dangerzone_rank"     "15"
+    "dangerzone_wins"     "300"
 }
 
-"vac_banned"	"0"
-"has_prime" "1"
-"competitive_cooldown_seconds" "0" // in seconds, 0 = no cooldown
-"cmd_friendly"	"666"
-"cmd_teaching"	"777"
-"cmd_leader"	"888"
-"player_level"	"39"
-"player_cur_xp"	"4999"
+// CS GO profile level and current XP 0 to 4999 within the level
+"player_level"    "39"
+"player_cur_xp"   "4999"
+
+// Commendations shown in the profile
+"cmd_friendly"    "1000"
+"cmd_teaching"    "2000"
+"cmd_leader"      "3000"
+
+// ACCOUNT STATE
+
+// Show the player as VAC banned
+"vac_banned"      "0"
+
+// Prime status If 0 ranks level XP are reset during parsing
+"has_prime"       "0"
+
+// Competitive cooldown duration in seconds 0 means disabled
+// When enabled blocks search sends UI cooldown and updates MatchmakingHello
+"competitive_cooldown_seconds" "0"
+
+// FATAL ERROR
+// If not empty the client shows a popup and does NOT enter the main menu
+// ClientWelcome is not sent Leave empty for normal operation
 
 "error" "" // fake error
 
-"country"	"RU"
-"currency"	"3"
-"fake_account_id" "0" // do not use fake steamid
+// REGION AND CURRENCY
 
-// these are the same weights valve uses
-"rarity_weights"
-{
-	"1"	"10000000"
-	"2"	"2000000"
-	"3"	"400000"
-	"4"	"80000"
-	"5"	"16000"
-	"6"	"3200"
-	"99"	"1280"
-}
+// Two letter country code "RU" "US" "DE" "UA" ...
+"country"  "RU"
 
-// remove keys, cases, stickers, etc. after they've been used
-"force_max_rarity"      "0"
-"destroy_used_items"	"1"
+// Store currency
+// 1 is USD 2 is GBP 3 is EUR 4 is CHF 5 is RUB 6 is JPY
+// 7 is BRL 8 is NOK 9 is IDR 10 is MYR 11 is PHP 12 is SGD
+// 13 is THB 14 is VND 15 is KRW 16 is TRY 17 is UAH 18 is MXN
+// 19 is CAD 20 is AUD 21 is NZD 22 is CNY 23 is INR 24 is CLP
+// 25 is PEN 26 is COP 27 is ZAR 28 is HKD 29 is TWD 30 is SAR
+// 31 is AED 32 is ARS 33 is ILS 34 is BYN 35 is KZT 36 is KWD
+// 37 is QAR 38 is CRC 39 is UYU 40 is BGN 41 is HRK 42 is CZK
+// 43 is DKK 44 is HUF 45 is PLN 46 is RON 47 is SEK
+"currency" "5"
+
+// CASES AND ITEMS
+
+// Force max rarity when opening cases for tests
+"force_max_rarity"     "1"
+
+// Destroy used items keys cases stickers tags passes
+"destroy_used_items"   "0"
+
+// Randomize float wear of new items from cases
 "randomize_item_float" "1"
 
-// uses in looking to play and recent teammates. need to put accountid
-"friends"
+// Rarity weights when opening cases Key is rarity number value is weight
+// The higher the weight the more often the rarity drops Missing key means 0
+// Valve defaults
+"rarity_weights"
 {
-	"1140104601"		"1"
-	"22202"		"2"
+    "1"  "10000000"   // Common
+    "2"  "2000000"    // Uncommon
+    "3"  "400000"     // Rare
+    "4"  "80000"      // Mythical
+    "5"  "16000"      // Legendary
+    "6"  "3200"       // Ancient
+    "99" "1280"       // Unusual knives gloves
 }
 
-// steam related options
+// FRIENDS
+// Used in Party Search and Recent Teammates
+// Key is account id value is not read for clarity
+//
+// AccountID is SteamID64 minus 76561197960265728
+// or equivalent steamID64 lower 32 bits
 
-// specifies what app id to use for the game. csgo/steam.inf is automatically modified if necessary, and the SteamAppId
-// environment variable is set. when using csgo_gc, this is the only thing you need to modify to switch app ids
-"appid_override"	"4465480" // new csgo appid
+"friends"
+{
+    "1124236885" "1"
+    "1140104601" "2"
+    "22202"      "3"
+}
 
-// only show servers with the "csgo_gc" tag in the server browser
-"show_csgo_gc_servers_only"	"1"
+// STEAM APP ID
+
+// App id under which the game is launched csgo steam.inf is automatically
+// patched if needed and the SteamAppId environment variable is also set
+// This is the only thing you need to change to switch appid
+"appid_override" "4465480" // new csgo appid
+
+// Show only servers with the tag csgo_gc in the server browser
+"show_csgo_gc_servers_only" "1"

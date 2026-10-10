@@ -132,7 +132,7 @@ void NetworkingParty::SendLobbyUpdate(uint32_t targetAccountId, uint32_t lobbyId
 
 void NetworkingParty::OnSessionRequest(SteamNetworkingMessagesSessionRequest_t *param)
 {
-    // Принимаем P2P-сессии от всех — party есть party.
+    // accept p2p sessions from everyone - party is party
     m_networkingMessages->AcceptSessionWithUser(param->m_identityRemote);
 }
 

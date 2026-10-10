@@ -7,6 +7,8 @@ constexpr const char *ConfigFilePath = "csgo_gc/config.txt";
 
 void GCConfig::Parse(const KeyValue& config)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+
     m_appIdOverride = config.GetNumber("appid_override", m_appIdOverride);
     m_showCsgoGCServersOnly = config.GetNumber("show_csgo_gc_servers_only", m_showCsgoGCServersOnly);
 
@@ -95,8 +97,8 @@ void GCConfig::ReloadFromFile()
     Parse(config);
 }
 
-// Helper: find `"key"` in a line, then the next quoted string after it,
-// and replace its contents in-place. Preserves indentation, tabs, trailing
+// helper: find `"key"` in a line, then the next quoted string after it,
+// and replace its contents in-place. keeps indentation, tabs, trailing
 // comments, etc.
 static bool ReplaceQuotedValueInLine(std::string &line, std::string_view key, std::string_view newValue)
 {
@@ -120,8 +122,8 @@ static bool ReplaceQuotedValueInLine(std::string &line, std::string_view key, st
 
 void GCConfig::Save() const
 {
-    // Load the file as plain text so we keep comments, tabs, blank lines,
-    // and key ordering intact. We only rewrite two values in-place.
+    // load the file as plain text so we keep comments, tabs, blank lines,
+    // and key ordering intact. we only rewrite two values in-place.
     std::string data = LoadFile(ConfigFilePath);
 
     bool foundLevel = false;
@@ -156,7 +158,7 @@ void GCConfig::Save() const
         pos = eol + (hasNewline ? 1 : 0);
     }
 
-    // If either key was missing from the file, insert it just before the
+    // if either key was missing from the file, insert it just before the
     // last closing brace so it still lives inside the "config" block.
     if (!foundLevel || !foundXp)
     {
@@ -188,6 +190,7 @@ void GCConfig::Save() const
 
 float GCConfig::GetRarityWeight(uint32_t rarity) const
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     for (const RarityWeight &weight : m_rarityWeights)
     {
         if (weight.rarity == rarity)
@@ -195,7 +198,6 @@ float GCConfig::GetRarityWeight(uint32_t rarity) const
             return weight.weight;
         }
     }
-
     return 0;
 }
 

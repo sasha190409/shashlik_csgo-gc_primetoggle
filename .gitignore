@@ -1,2 +1,85 @@
-/*build*/
-/.idea
+# --- build output ---
+build/
+patch/build/
+cmake-build-*/
+out/
+*.dll
+*.so
+*.dylib
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+*.o
+*.a
+*.i
+
+# --- cmake ---
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+install_manifest.txt
+_deps/
+CTestTestfile.cmake
+
+# --- compiled launcher / release artifacts ---
+launcher/*.exe
+release/
+*.zip
+
+# --- generated code ---
+# (protobufs are checked in, but keep the generated pb.cc/pb.h out if you
+#  ever start regenerating at build time)
+# protobufs/*.pb.cc
+# protobufs/*.pb.h
+
+# --- runtime junk from csgo_gc ---
+csgo_gc/gc_log.txt
+csgo_gc/*.dll
+csgo_gc/inventory.txt
+csgo_gc/config.txt
+csgo_gc/price_sheet.txt
+csgo_gc/passes.txt
+csgo_gc/unusual_loot_lists.txt
+# keep the example ones
+!examples/config.txt
+!examples/inventory.txt
+!examples/passes.txt
+!examples/price_sheet.txt
+!examples/unusual_loot_lists.txt
+
+# --- steam / game data (never commit) ---
+csgo/
+csgo_gc/steam.inf
+steam_appid.txt
+steam_appid_override.txt
+
+# --- IDE / editor ---
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+*~
+.clangd/
+compile_commands.json
+.cache/
+
+# --- os ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+._*
+
+# --- misc ---
+dir.txt
+*.log
+*.tmp
+*.bak
+nul

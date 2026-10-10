@@ -26,10 +26,29 @@ private:
     void HandleNetMessage(uint64_t steamId, const void *data, uint32_t size);
     void HandleClientSOCacheUnsubscribe(uint64_t steamId);
 
+    // handshake / connection
     void OnServerHello(GCMessageRead &messageRead);
+    void OnServerAvailable(GCMessageRead &messageRead);              // 4506
+    void OnClientConnectionStatus(GCMessageRead &messageRead);       // 4009
+    void OnServerConnectionStatus(GCMessageRead &messageRead);       // 4010
+
+    // matchmaking
+    void OnMatchmakingClient2ServerPing(GCMessageRead &messageRead); // 9103
+    void OnMatchmakingServerReservationResponse(GCMessageRead &messageRead); // 9106
+    void OnMatchmakingGC2ClientReserve(GCMessageRead &messageRead);  // 9107
+    void OnMatchmakingGC2ClientAbandon(GCMessageRead &messageRead);  // 9112
+    void OnMatchmakingGC2ServerConfirm(GCMessageRead &messageRead);  // 9114
+    void OnGC2ServerReservationUpdate(GCMessageRead &messageRead);   // 9142
+
+    // misc
+    void OnServerVarValueNotificationInfo(GCMessageRead &messageRead); // 9150
+    void OnServer2GCClientValidate(GCMessageRead &messageRead);      // 9153
+    void OnServerVersionUpdated(GCMessageRead &messageRead);         // 2522
+    void OnGameServerInfo(GCMessageRead &messageRead);               // 4508
+
+    // item plumbing
     void IncrementKillCountAttribute(GCMessageRead &messageRead);
 
-    void OnMatchmakingServerReservationResponse(GCMessageRead &messageRead);
     struct PendingReservation {
         uint64_t exchange;
         uint32_t token;

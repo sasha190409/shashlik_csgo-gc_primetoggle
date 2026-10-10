@@ -95,16 +95,16 @@ void ClientGC::OnMatchmakingStart(GCMessageRead &messageRead)
         m_isCooldownActive = true;
         m_cooldownEndTime = std::chrono::steady_clock::now() + std::chrono::seconds(cooldown);
 
-        // 1) Tell the client to stop the search animation.
+        // 1) tell the client to stop the search animation.
         SendMatchmakingUpdate();
 
-        // 2) Refresh MatchmakingHello so penalty_seconds/penalty_reason
-        //    reflect the just-started cooldown. Without this, the main menu
-        //    keeps the Play button enabled and the client never knows the
+        // 2) refresh MatchmakingHello so penalty_seconds/penalty_reason
+        //    reflect the just-started cooldown. without this, the main menu
+        //    keeps the play button enabled and the client never knows the
         //    account is on cooldown.
         SendMatchmakingHelloUpdate();
 
-        // 3) Push the popup notification with the initial cooldown length.
+        // 3) push the popup notification with the initial cooldown length.
         SendCompetitiveCooldown();
 
         Platform::Print("Blocked matchmaking: Cooldown active (%u seconds)\n", cooldown);
@@ -154,6 +154,103 @@ void ClientGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
         {
         case k_EMsgGCClientHello:
             OnClientHello(messageRead);
+            break;
+
+        // new: regional ClientHello variants - same logic
+        case k_EMsgGCClientHelloPartner:
+        case k_EMsgGCClientHelloPW:
+        case k_EMsgGCClientHelloR2:
+        case k_EMsgGCClientHelloR3:
+        case k_EMsgGCClientHelloR4:
+            OnClientHello(messageRead);
+            break;
+
+        // new: econ preview
+        case k_EMsgGCCStrike15_v2_Client2GCEconPreviewDataBlockRequest:
+            OnClient2GCEconPreviewDataBlockRequest(messageRead);
+            break;
+
+        // new: SDR ticket
+        case k_EMsgGCCStrike15_v2_ClientToGCRequestTicket:
+            OnClientToGCRequestTicket(messageRead);
+            break;
+
+        // new: ClientVarValueNotification
+        case k_EMsgGCCStrike15_v2_ClientVarValueNotificationInfo:
+            OnClientVarValueNotification(messageRead);
+            break;
+
+        // new: text msg
+        case k_EMsgGCCStrike15_v2_Client2GCTextMsg:
+            OnClient2GCTextMsg(messageRead);
+            break;
+
+        // new: watch / spectate
+        case k_EMsgGCCStrike15_v2_WatchInfoUsers:
+            OnWatchInfoUsers(messageRead);
+            break;
+        case k_EMsgGCCStrike15_v2_ClientRequestWatchInfoFriends2:
+            OnClientRequestWatchInfoFriends2(messageRead);
+            break;
+
+        // new: offers / favorites
+        case k_EMsgGCCStrike15_v2_ClientRequestOffers:
+            OnClientRequestOffers(messageRead);
+            break;
+        case k_EMsgGCCStrike15_v2_SetEventFavorite:
+            OnSetEventFavorite(messageRead);
+            break;
+
+        // new: item schema / sort / picked up
+        case k_EMsgGCUpdateItemSchema:
+            OnUpdateItemSchema(messageRead);
+            break;
+        case k_EMsgGCSortItems:
+            OnSortItems(messageRead);
+            break;
+        case k_EMsgGCShowItemsPickedUp:
+            OnShowItemsPickedUp(messageRead);
+            break;
+
+        // new: connection status
+        case k_EMsgGCClientConnectionStatus:
+        case k_EMsgGCServerConnectionStatus:
+            OnClientConnectionStatus(messageRead);
+            break;
+
+        // new: legacy party invites
+        case k_EMsgGCInviteToParty:
+            OnInviteToParty(messageRead);
+            break;
+        case k_EMsgGCPartyInviteResponse:
+            OnPartyInviteResponse(messageRead);
+            break;
+        case k_EMsgGCKickFromParty:
+            OnKickFromParty(messageRead);
+            break;
+        case k_EMsgGCLeaveParty:
+            OnLeaveParty(messageRead);
+            break;
+
+        // new: replicate / system / error
+        case k_EMsgGCReplicateConVars:
+            OnReplicateConVars(messageRead);
+            break;
+        case k_EMsgGCSystemMessage:
+            OnSystemBroadcast(messageRead);
+            break;
+        case k_EMsgGCError:
+            OnGCError(messageRead);
+            break;
+
+        // new: abuse report
+        case k_EMsgGC_ReportAbuse:
+            OnReportAbuse(messageRead);
+            break;
+
+        // new: private queues
+        case k_EMsgGCCStrike15_v2_PrivateQueues:
+            OnPrivateQueues(messageRead);
             break;
 
         case k_EMsgGCAdjustItemEquippedState:
@@ -389,7 +486,7 @@ void ClientGC::UpdateCooldown()
     if (now >= m_cooldownEndTime) {
         m_isCooldownActive = false;
 
-        // Tell the client that the cooldown is over: Hello without
+        // tell the client that the cooldown is over: Hello without
         // penalty_seconds + zero-length notification.
         SendMatchmakingHelloUpdate();
         SendCompetitiveCooldown();
@@ -588,8 +685,8 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
     message.set_player_level(GetConfig().Level());
     message.set_player_cur_xp(GetConfig().Xp());
 
-    // Cooldown state. This is what actually makes the client disable the
-    // Play button and show the "cooldown" UI. The ServerNotificationForUserPenalty
+    // cooldown state. this is what actually makes the client disable the
+    // play button and show the "cooldown" UI. the ServerNotificationForUserPenalty
     // only fires the initial popup; the persistent state lives here.
     if (m_isCooldownActive)
     {
@@ -598,7 +695,7 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
         if (remaining > 0)
         {
             message.set_penalty_seconds(static_cast<uint32_t>(remaining));
-            // reason 6 = abandon (as seen in the wild). Change here if a
+            // reason 6 = abandon (as seen in the wild). change here if a
             // different cooldown reason is needed.
             message.set_penalty_reason(6);
         }
@@ -653,9 +750,7 @@ void ClientGC::SendRankUpdate()
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, message);
 }
 
-// ============================================================================
-// #9 Secure mode / validation
-// ============================================================================
+// #9 secure mode / validation
 
 void ClientGC::SendInitSystem()
 {
@@ -679,16 +774,14 @@ void ClientGC::OnClientInitSystemResponse(GCMessageRead &messageRead)
         return;
     }
 
-    Platform::Print("[SecureMode] 👍👍👍👍👍 response=%d einit_result=%d err1=%d err2=%d\n",
+    Platform::Print("[SecureMode] response=%d einit_result=%d err1=%d err2=%d\n",
         message.response(),
         message.einit_result(),
         message.error_code1(),
         message.error_code2());
 }
 
-// ============================================================================
-// #10 Privacy settings
-// ============================================================================
+// #10 privacy settings
 
 void ClientGC::OnAccountPrivacySettings(GCMessageRead &messageRead)
 {
@@ -711,9 +804,7 @@ void ClientGC::OnAccountPrivacySettings(GCMessageRead &messageRead)
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_AccountPrivacySettings, message);
 }
 
-// ============================================================================
-// #13 Souvenir
-// ============================================================================
+// #13 souvenir
 
 void ClientGC::OnClientRequestSouvenir(GCMessageRead &messageRead)
 {
@@ -733,9 +824,7 @@ void ClientGC::OnClientRequestSouvenir(GCMessageRead &messageRead)
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchEndRewardDropsNotification, notification);
 }
 
-// ============================================================================
-// #14 Multi-equip
-// ============================================================================
+// #14 multi-equip
 
 void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
 {
@@ -816,9 +905,7 @@ void ClientGC::AdjustItemEquippedStateMulti(GCMessageRead &messageRead)
     }
 }
 
-// ============================================================================
-// AcknowledgePenalty
-// ============================================================================
+// acknowledge penalty
 
 void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
 {
@@ -832,9 +919,7 @@ void ClientGC::OnAcknowledgePenalty(GCMessageRead &messageRead)
     Platform::Print("AcknowledgePenalty: acknowledged=%d\n", message.acknowledged());
 }
 
-// ============================================================================
-// Prestige coin
-// ============================================================================
+// prestige coin
 
 void ClientGC::OnClientRequestPrestigeCoin(GCMessageRead &messageRead)
 {
@@ -857,8 +942,8 @@ void ClientGC::OnClientRequestPrestigeCoin(GCMessageRead &messageRead)
 
     if (!m_inventory.GrantPrestigeCoin(newItemId, create, destroy, notification))
     {
-        // Уже на максимальном уровне (4878). Показываем клиенту попап,
-        // чтобы кнопка не висела "в обработке" вечно.
+        // already at max level (4878). show the client a popup,
+        // so the button doesn't hang in "processing" forever.
         Platform::Print("Prestige coin: refused (already at max level)\n");
 
         CMsgGCClientDisplayNotification refuse;
@@ -868,13 +953,13 @@ void ClientGC::OnClientRequestPrestigeCoin(GCMessageRead &messageRead)
         return;
     }
 
-    // Сброс уровня и XP на престиж
+    // reset level and XP on prestige
     GetConfig().SetLevel(1);
     GetConfig().SetXp(0);
     GetConfig().Save();
 
-    // ReloadConfig перечитает файл с диска и разошлёт SendRankUpdate() +
-    // SendMatchmakingHelloUpdate(), чтобы клиент увидел новый уровень/XP.
+    // ReloadConfig will re-read the file from disk and fire SendRankUpdate() +
+    // SendMatchmakingHelloUpdate() so the client sees the new level/XP.
     ReloadConfig();
 
     if (destroy.has_type_id())
@@ -885,9 +970,7 @@ void ClientGC::OnClientRequestPrestigeCoin(GCMessageRead &messageRead)
     SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification);
 }
 
-// ============================================================================
-// SetPlayerLeaderboardSafeName
-// ============================================================================
+// set player leaderboard safe name
 
 void ClientGC::OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead)
 {
@@ -902,9 +985,7 @@ void ClientGC::OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead)
     Platform::Print("SetPlayerLeaderboardSafeName: %s\n", m_leaderboardSafeName.c_str());
 }
 
-// ============================================================================
-// Reports / Commend
-// ============================================================================
+// reports / commend
 
 static uint64_t MakeReportConfirmationId()
 {
@@ -981,9 +1062,7 @@ void ClientGC::OnClientCommendPlayer(GCMessageRead &messageRead)
         message.commendation().cmd_leader());
 }
 
-// ============================================================================
-// SetMyActivityInfo
-// ============================================================================
+// set my activity info
 
 void ClientGC::OnSetMyActivityInfo(GCMessageRead &messageRead)
 {
@@ -991,9 +1070,7 @@ void ClientGC::OnSetMyActivityInfo(GCMessageRead &messageRead)
     Platform::Print("ClientGC: received SetMyActivityInfo (unparsed)\n");
 }
 
-// ============================================================================
-// Global chat
-// ============================================================================
+// global chat
 
 void ClientGC::OnGlobalChatSubscribe(GCMessageRead &messageRead)
 {
@@ -1024,9 +1101,7 @@ void ClientGC::OnClientToGCChat(GCMessageRead &messageRead)
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_GlobalChat, response);
 }
 
-// ============================================================================
-// MatchList / Watch — empty responses
-// ============================================================================
+// empty responses for matchlist and watch
 
 void ClientGC::SendEmptyMatchList(uint32_t requestId, uint32_t accountId)
 {
@@ -1103,9 +1178,7 @@ void ClientGC::OnMatchListRequestTournamentGames(GCMessageRead &messageRead)
     SendEmptyMatchList(0, EffectiveAccountId());
 }
 
-// ============================================================================
-// Existing handlers
-// ============================================================================
+// existing handlers
 
 void ClientGC::OnClientReportValidation(GCMessageRead &messageRead)
 {
@@ -1223,22 +1296,6 @@ void ClientGC::OnClientHello(GCMessageRead &messageRead)
     if (!messageRead.ReadProtobuf(hello))
     {
         Platform::Print("Parsing CMsgClientHello failed, ignoring\n");
-        return;
-    }
-
-    // If config has "error", reply with ClientLogonFatalError and stop.
-    const std::string &err = GetConfig().Error();
-    if (!err.empty() && !m_fatalErrorSent)
-    {
-        m_fatalErrorSent = true;
-
-        CMsgGCCStrike15_v2_ClientLogonFatalError logonError;
-        logonError.set_errorcode(1);
-        logonError.set_message(err);
-        logonError.set_country(GetConfig().Country());
-
-        SendMessageToGame(false, k_EMsgGCCStrike15_v2_ClientLogonFatalError, logonError);
-        Platform::Print("Sent ClientLogonFatalError: %s\n", err.c_str());
         return;
     }
 
@@ -1592,8 +1649,8 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
     const uint32_t gameType = message.game_type();
     const uint32_t launcher = message.launcher();
 
-    // PartyBrowser resolves GetPartyMemberXuid(id, 0) by treating `id` as
-    // the leader's ACCOUNT ID, not as a lobby id. So both Party_Register.id
+    // partybrowser resolves GetPartyMemberXuid(id, 0) by treating `id` as
+    // the leader's account id, not as a lobby id. so both Party_Register.id
     // and Party_SearchResults.Entry.id must be the account id.
     auto registerLobby = [&](uint32_t accountId)
     {
@@ -1625,11 +1682,9 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         entry->set_accountid(accountId);
     };
 
-    // ------------------------------------------------------------------
-    // 1. Register each lobby first so the engine's lobby registry knows
-    //    about the leader. SearchResults alone is not enough: the engine
+    // 1. register each lobby first so the engine's lobby registry knows
+    //    about the leader. searchresults alone is not enough: the engine
     //    fills its GetPartyMemberXuid map from Party_Register (9189).
-    // ------------------------------------------------------------------
     registerLobby(EffectiveAccountId());
 
     for (uint32_t friendId : GetConfig().GetFriends())
@@ -1638,9 +1693,7 @@ void ClientGC::PartySearch(GCMessageRead &messageRead)
         registerLobby(friendId);
     }
 
-    // ------------------------------------------------------------------
-    // 2. Emit search results referencing the same ids.
-    // ------------------------------------------------------------------
+    // 2. emit search results referencing the same ids.
     CMsgGCCStrike15_v2_Party_SearchResults response;
 
     addEntry(response, EffectiveAccountId());
@@ -2049,13 +2102,13 @@ void ClientGC::OnPartyRegister(GCMessageRead &messageRead)
         return;
     }
 
-    // Клиент шлёт Party_Register с id=0 при создании лобби.
-    // Нам нужно присвоить ненулевой id и вернуть эхо обратно.
+    // client sends Party_Register with id=0 when creating a lobby.
+    // we need to assign a non-zero id and echo it back.
     uint32_t lobbyId = message.id();
     if (lobbyId == 0)
     {
-        // Генерируем случайный id лобби. Нельзя 0 — клиент считает это
-        // «не зарегистрирован».
+        // generate a random lobby id. can't be 0, the client treats that as
+        // "not registered".
         do { lobbyId = Random{}.Integer<uint32_t>(); } while (lobbyId == 0);
     }
 
@@ -2066,14 +2119,14 @@ void ClientGC::OnPartyRegister(GCMessageRead &messageRead)
     m_partyLobby.launcher   = message.launcher();
     m_partyLobby.active     = true;
 
-    // Отправляем клиенту эхо с валидным id и минимальными настройками.
+    // send the client an echo with a valid id and minimal settings.
     CMsgGCCStrike15_v2_Party_Register response;
     response.set_id(lobbyId);
     response.set_ver(message.ver());
     response.set_apr(GetConfig().HasPrime() ? 1 : 0);
     response.set_ark(static_cast<uint32_t>(GetConfig().CompetitiveRank()) * 10);
     response.set_grp(3);
-    response.set_slots(5);                 // максимум для MM
+    response.set_slots(5);                 // mm max
     response.set_launcher(message.launcher());
     response.set_game_type(message.game_type());
 
@@ -2101,7 +2154,7 @@ void ClientGC::OnPartyInvite(GCMessageRead &messageRead)
     uint32_t lobbyId = message.lobbyid();
     PostToHost(HostEvent::PartyInvite, message.accountid(), &lobbyId, sizeof(lobbyId));
 
-    Platform::Print("Party_Invite → account %u (lobby %u)\n",
+    Platform::Print("Party_Invite to account %u (lobby %u)\n",
         message.accountid(), message.lobbyid());
 }
 
@@ -2117,7 +2170,7 @@ void ClientGC::OnClientPartyJoinRelay(GCMessageRead &messageRead)
     uint32_t lobbyId = static_cast<uint32_t>(message.lobbyid());
     PostToHost(HostEvent::PartyJoinRelay, message.accountid(), &lobbyId, sizeof(lobbyId));
 
-    Platform::Print("ClientPartyJoinRelay → host account %u\n", message.accountid());
+    Platform::Print("ClientPartyJoinRelay to host account %u\n", message.accountid());
 }
 
 void ClientGC::OnClientPartyWarning(GCMessageRead &messageRead)
@@ -2182,4 +2235,374 @@ void ClientGC::OnRemoteLobbyUpdate(uint32_t /*fromAccountId*/, uint32_t lobbyId,
     }
     m_partyLobby.memberAccountIds = members;
     Platform::Print("Lobby %u updated: %zu members\n", lobbyId, members.size());
+}
+
+// item preview (9156/9157)
+
+void ClientGC::OnClient2GCEconPreviewDataBlockRequest(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Client2GCEconPreviewDataBlockRequest request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing Client2GCEconPreviewDataBlockRequest failed, ignoring\n");
+        return;
+    }
+
+    // param_s = item id, param_a = owner account id, param_m/param_d = match id
+    uint64_t itemId = request.param_s();
+    uint32_t ownerAccountId = static_cast<uint32_t>(request.param_a());
+
+    Platform::Print("EconPreviewRequest: item=%llu owner=%u match=%llu\n",
+        static_cast<unsigned long long>(itemId),
+        ownerAccountId,
+        static_cast<unsigned long long>(request.param_m()));
+
+    CMsgGCCStrike15_v2_Client2GCEconPreviewDataBlockResponse response;
+
+    const CSOEconItem *item = m_inventory.GetItem(itemId);
+    if (item)
+    {
+        m_inventory.ItemToPreviewDataBlock(*item, *response.mutable_iteminfo());
+    }
+    else
+    {
+        Platform::Print("EconPreviewRequest: item %llu not in inventory, sending empty\n",
+            static_cast<unsigned long long>(itemId));
+    }
+
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_Client2GCEconPreviewDataBlockResponse, response);
+}
+
+// steam datagram relay ticket (9178/9177)
+
+void ClientGC::OnClientToGCRequestTicket(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientToGCRequestTicket request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing ClientToGCRequestTicket failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("ClientToGCRequestTicket: auth=%llu authip=%u gs=%llu routing=%s\n",
+        static_cast<unsigned long long>(request.authorized_steam_id()),
+        request.authorized_public_ip(),
+        static_cast<unsigned long long>(request.gameserver_steam_id()),
+        request.gameserver_sdr_routing().c_str());
+
+    // a real SDR ticket is signed with Valve's private key - we can't
+    // generate it. send an empty one, the client falls back to direct connect.
+    CMsgGCToClientSteamDatagramTicket response;
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GCToClientSteamdatagramTicket, response);
+}
+
+// client var value notification (9144)
+
+void ClientGC::OnClientVarValueNotification(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientVarValueNotificationInfo message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing ClientVarValueNotification failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("ClientVarValueNotification: name=%s value=%d server=%u:%u choked=%d\n",
+        message.value_name().c_str(),
+        message.value_int(),
+        message.server_addr(),
+        message.server_port(),
+        message.choked_blocks_size());
+}
+
+// report abuse (1065/1066)
+
+void ClientGC::OnReportAbuse(GCMessageRead &messageRead)
+{
+    CMsgGCReportAbuse message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing CMsgGCReportAbuse failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("ReportAbuse: target=%llu type=%u content=%u gid=%llu desc=%s\n",
+        static_cast<unsigned long long>(message.target_steam_id()),
+        message.abuse_type(),
+        message.content_type(),
+        static_cast<unsigned long long>(message.gid()),
+        message.description().c_str());
+
+    CMsgGCReportAbuseResponse response;
+    response.set_target_steam_id(message.target_steam_id());
+    response.set_result(0); // k_EGCMsgResponseOK
+    SendMessageToGame(false, k_EMsgGC_ReportAbuseResponse, response);
+}
+
+// gc text messages (9135/9134)
+
+void ClientGC::OnClient2GCTextMsg(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_Client2GCTextMsg message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing Client2GCTextMsg failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("Client2GCTextMsg: id=%u args=%d\n",
+        message.id(),
+        message.args_size());
+
+    // echo back with the same id so the client doesn't hang waiting.
+    // payload is empty - the app decides what to do.
+    CMsgGCCStrike15_v2_GC2ClientTextMsg response;
+    response.set_id(message.id());
+    response.set_type(0);
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, response);
+}
+
+// watch / spectate (9126, 9138)
+
+void ClientGC::OnWatchInfoUsers(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_WatchInfoUsers request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing WatchInfoUsers failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("WatchInfoUsers: request=%u accounts=%d extended=%u\n",
+        request.request_id(),
+        request.account_ids_size(),
+        request.extended_timeout());
+
+    CMsgGCCStrike15_v2_WatchInfoUsers response;
+    response.set_request_id(request.request_id());
+    for (int i = 0; i < request.account_ids_size(); i++)
+    {
+        response.add_account_ids(request.account_ids(i));
+    }
+    // watchable_match_infos is left empty - players have no live matches
+
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_WatchInfoUsers, response);
+}
+
+void ClientGC::OnClientRequestWatchInfoFriends2(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientRequestWatchInfoFriends request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing ClientRequestWatchInfoFriends2 failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("ClientRequestWatchInfoFriends2: request=%u accounts=%d serverid=%llu\n",
+        request.request_id(),
+        request.account_ids_size(),
+        static_cast<unsigned long long>(request.serverid()));
+
+    CMsgGCCStrike15_v2_WatchInfoUsers response;
+    response.set_request_id(request.request_id());
+    for (int i = 0; i < request.account_ids_size(); i++)
+    {
+        response.add_account_ids(request.account_ids(i));
+    }
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_WatchInfoUsers, response);
+}
+
+// offers / favorites (9195, 9200)
+
+void ClientGC::OnClientRequestOffers(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_ClientRequestOffers request;
+    if (!messageRead.ReadProtobuf(request))
+    {
+        Platform::Print("Parsing ClientRequestOffers failed, ignoring\n");
+        return;
+    }
+    Platform::Print("ClientRequestOffers\n");
+    // no reply message for this one, nothing to answer with
+}
+
+void ClientGC::OnSetEventFavorite(GCMessageRead &messageRead)
+{
+    CMsgGCCStrike15_v2_SetEventFavorite message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing SetEventFavorite failed, ignoring\n");
+        return;
+    }
+    Platform::Print("SetEventFavorite: event=%llu fav=%d\n",
+        static_cast<unsigned long long>(message.eventid()),
+        message.is_favorite());
+    // no reply message either
+}
+
+// item schema / sort / picked up (1049, 1041, 1071)
+
+void ClientGC::OnUpdateItemSchema(GCMessageRead &messageRead)
+{
+    CMsgUpdateItemSchema message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing UpdateItemSchema failed, ignoring\n");
+        return;
+    }
+    Platform::Print("UpdateItemSchema: version=%u url=%s items_game=%zu bytes\n",
+        message.item_schema_version(),
+        message.items_game_url().c_str(),
+        message.items_game().size());
+}
+
+void ClientGC::OnSortItems(GCMessageRead &messageRead)
+{
+    CMsgSortItems message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing SortItems failed, ignoring\n");
+        return;
+    }
+    Platform::Print("SortItems: type=%u\n", message.sort_type());
+    // client sorts locally, there's no server response
+}
+
+void ClientGC::OnShowItemsPickedUp(GCMessageRead &messageRead)
+{
+    CMsgGCShowItemsPickedUp message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing ShowItemsPickedUp failed, ignoring\n");
+        return;
+    }
+    Platform::Print("ShowItemsPickedUp: player=%llu\n",
+        static_cast<unsigned long long>(message.player_steamid()));
+}
+
+// connection status (4009/4010)
+
+void ClientGC::OnClientConnectionStatus(GCMessageRead &messageRead)
+{
+    CMsgConnectionStatus message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing ClientConnectionStatus failed, ignoring\n");
+        return;
+    }
+    Platform::Print("ClientConnectionStatus: status=%d queue=%d/%d wait=%d est=%d\n",
+        message.status(),
+        message.queue_position(),
+        message.queue_size(),
+        message.wait_seconds(),
+        message.estimated_wait_seconds_remaining());
+}
+
+// legacy party invites (4501-4505)
+
+void ClientGC::OnInviteToParty(GCMessageRead &messageRead)
+{
+    CMsgInviteToParty message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing InviteToParty failed, ignoring\n");
+        return;
+    }
+
+    Platform::Print("InviteToParty: steam=%llu version=%u team=%u\n",
+        static_cast<unsigned long long>(message.steam_id()),
+        message.client_version(),
+        message.team_invite());
+
+    // echo back as InvitationCreated - the client will draw the invite
+    CMsgInvitationCreated notification;
+    notification.set_group_id(0);
+    notification.set_steam_id(message.steam_id());
+    SendMessageToGame(false, k_EMsgGCInvitationCreated, notification);
+}
+
+void ClientGC::OnPartyInviteResponse(GCMessageRead &messageRead)
+{
+    CMsgPartyInviteResponse message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing PartyInviteResponse failed, ignoring\n");
+        return;
+    }
+    Platform::Print("PartyInviteResponse: party=%llu accept=%d version=%u team=%u\n",
+        static_cast<unsigned long long>(message.party_id()),
+        message.accept(),
+        message.client_version(),
+        message.team_invite());
+}
+
+void ClientGC::OnKickFromParty(GCMessageRead &messageRead)
+{
+    CMsgKickFromParty message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing KickFromParty failed, ignoring\n");
+        return;
+    }
+    Platform::Print("KickFromParty: steam=%llu\n",
+        static_cast<unsigned long long>(message.steam_id()));
+}
+
+void ClientGC::OnLeaveParty(GCMessageRead &messageRead)
+{
+    CMsgLeaveParty message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing LeaveParty failed, ignoring\n");
+        return;
+    }
+    Platform::Print("LeaveParty\n");
+}
+
+// replicate convars / system broadcast / errors (4001, 4002, 4509)
+
+void ClientGC::OnReplicateConVars(GCMessageRead &messageRead)
+{
+    CMsgReplicateConVars message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing ReplicateConVars failed, ignoring\n");
+        return;
+    }
+    Platform::Print("ReplicateConVars: %d entries\n", message.convars_size());
+    for (int i = 0; i < message.convars_size(); i++)
+    {
+        const CMsgConVarValue &cv = message.convars(i);
+        Platform::Print("  %s = %s\n", cv.name().c_str(), cv.value().c_str());
+    }
+}
+
+void ClientGC::OnSystemBroadcast(GCMessageRead &messageRead)
+{
+    CMsgSystemBroadcast message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing SystemBroadcast failed, ignoring\n");
+        return;
+    }
+    Platform::Print("SystemBroadcast: %s\n", message.message().c_str());
+}
+
+void ClientGC::OnGCError(GCMessageRead &messageRead)
+{
+    CMsgGCError message;
+    if (!messageRead.ReadProtobuf(message))
+    {
+        Platform::Print("Parsing GCError failed, ignoring\n");
+        return;
+    }
+    Platform::Print("GCError: %s\n", message.error_text().c_str());
+}
+
+// private queues (9214) - no protobuf
+
+void ClientGC::OnPrivateQueues(GCMessageRead &messageRead)
+{
+    (void)messageRead;
+    Platform::Print("PrivateQueues (no proto, ignoring payload)\n");
 }

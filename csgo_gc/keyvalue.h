@@ -88,9 +88,7 @@ public:
         subkey.m_string = std::to_string(value);
     }
 
-    // ------------------------------------------------------------------------
     // update-or-insert helpers (used by GCConfig::Save)
-    // ------------------------------------------------------------------------
 
     template<typename T>
     void SetNumber(std::string_view name, T value)

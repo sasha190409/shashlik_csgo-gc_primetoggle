@@ -105,6 +105,8 @@ public:
     uint64_t PurchaseItem(uint32_t defIndex, std::vector<CMsgSOSingleObject> &update);
     void ReloadFromFile();
     void WriteToFile() const;
+    // move this to the item schema maybe?
+    void ItemToPreviewDataBlock(const CSOEconItem &item, CEconItemPreviewDataBlock &block);
 private:
     mutable std::recursive_mutex m_mutex;
     uint32_t AccountId() const;
@@ -126,8 +128,7 @@ private:
 
     void DestroyItem(ItemMap::iterator iterator, CMsgSOSingleObject &message);
 
-    // move this to the item schema maybe?
-    void ItemToPreviewDataBlock(const CSOEconItem &item, CEconItemPreviewDataBlock &block);
+
 
     // helpers for serializing items to CMsgSOMultipleObjects and CMsgSOSingleObject
     void ToSingleObject(CMsgSOSingleObject &message, SOTypeId type, const google::protobuf::MessageLite &object);

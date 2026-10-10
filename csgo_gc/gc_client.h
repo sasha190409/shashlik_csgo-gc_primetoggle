@@ -73,6 +73,27 @@ private:
     void CasketItemAdd(GCMessageRead &messageRead);
     void CasketItemExtract(GCMessageRead &messageRead);
     void StatTrakSwap(GCMessageRead &messageRead);
+    void OnClient2GCEconPreviewDataBlockRequest(GCMessageRead &messageRead);
+    void OnClientToGCRequestTicket(GCMessageRead &messageRead);
+    void OnClientVarValueNotification(GCMessageRead &messageRead);
+    void OnReportAbuse(GCMessageRead &messageRead);
+    void OnClient2GCTextMsg(GCMessageRead &messageRead);
+    void OnWatchInfoUsers(GCMessageRead &messageRead);
+    void OnClientRequestWatchInfoFriends2(GCMessageRead &messageRead);
+    void OnClientRequestOffers(GCMessageRead &messageRead);
+    void OnSetEventFavorite(GCMessageRead &messageRead);
+    void OnUpdateItemSchema(GCMessageRead &messageRead);
+    void OnSortItems(GCMessageRead &messageRead);
+    void OnShowItemsPickedUp(GCMessageRead &messageRead);
+    void OnClientConnectionStatus(GCMessageRead &messageRead);
+    void OnInviteToParty(GCMessageRead &messageRead);
+    void OnPartyInviteResponse(GCMessageRead &messageRead);
+    void OnKickFromParty(GCMessageRead &messageRead);
+    void OnLeaveParty(GCMessageRead &messageRead);
+    void OnReplicateConVars(GCMessageRead &messageRead);
+    void OnSystemBroadcast(GCMessageRead &messageRead);
+    void OnGCError(GCMessageRead &messageRead);
+    void OnPrivateQueues(GCMessageRead &messageRead);
 
     void DeleteItem(GCMessageRead &messageRead);
     void UnlockCrate(GCMessageRead &messageRead);
@@ -80,17 +101,17 @@ private:
     void NameBaseItem(GCMessageRead &messageRead);
     void RemoveItemName(GCMessageRead &messageRead);
 
-    // Secure mode / validation
+    // secure mode / validation
     void OnClientInitSystemResponse(GCMessageRead &messageRead);
     void SendInitSystem();
 
-    // Privacy
+    // privacy
     void OnAccountPrivacySettings(GCMessageRead &messageRead);
 
-    // Souvenir
+    // souvenir
     void OnClientRequestSouvenir(GCMessageRead &messageRead);
 
-    // NEW
+    // new
     void OnAcknowledgePenalty(GCMessageRead &messageRead);
     void OnSetPlayerLeaderboardSafeName(GCMessageRead &messageRead);
     void OnClientReportPlayer(GCMessageRead &messageRead);
@@ -101,7 +122,7 @@ private:
     void OnGlobalChatUnsubscribe(GCMessageRead &messageRead);
     void OnClientToGCChat(GCMessageRead &messageRead);
 
-    // MatchList / Watch (empty responses)
+    // empty responses, dont care
     void OnMatchListRequestCurrentLiveGames(GCMessageRead &messageRead);
     void OnMatchListRequestRecentUserGames(GCMessageRead &messageRead);
     void OnMatchListRequestLiveGameForUser(GCMessageRead &messageRead);
@@ -134,11 +155,11 @@ private:
     void ReloadPasses();
     void ReloadUnusualLootLists();
 
-    // Account privacy settings, indexed by setting_type
+    // account privacy settings, indexed by setting_type
     std::unordered_map<uint32_t, uint32_t> m_privacySettings;
 
-    // Fatal error handling: if the config has "error", we send
-    // ClientLogonFatalError and stop. This flag prevents duplicate sends.
+    // fatal error handling: if the config has "error", we send
+    // ClientLogonFatalError and stop. this flag prevents duplicate sends.
     bool m_fatalErrorSent{ false };
 
     // set by SetPlayerLeaderboardSafeName
@@ -156,7 +177,7 @@ private:
     void SendCompetitiveCooldown();
     void UpdateCooldown();
 
-    // ===== Party =====
+    // party
     PartyLobby m_partyLobby;
 
     void OnPartyRegister(GCMessageRead &messageRead);

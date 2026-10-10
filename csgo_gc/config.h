@@ -14,11 +14,8 @@ class GCConfig
 public:
     GCConfig();
     void ReloadFromFile();
-
-    // write config.txt back to disk with the current values of level/xp
     void Save() const;
 
-    // options used by steam hook
     uint32_t AppIdOverride() const { return m_appIdOverride; }
     bool ShowCsgoGCServersOnly() const { return m_showCsgoGCServersOnly; }
 
@@ -43,23 +40,35 @@ public:
     int Level() const { return m_level; }
     int Xp() const { return m_xp; }
 
-    // setters for level/xp (used on prestige)
     void SetLevel(int level) { m_level = level; }
     void SetXp(int xp) { m_xp = xp; }
 
-    std::string Country() const { return m_country; }
+    // these two return std::string - they absolutely need the lock,
+    // otherwise use-after-free is possible during ReloadFromFile
+    std::string Country() const
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        return m_country;
+    }
     int Currency() const { return m_currency; }
 
-    // fatal error string. If non-empty, ClientGC sends
-    // k_EMsgGCCStrike15_v2_ClientLogonFatalError instead of ClientWelcome.
-    std::string Error() const { return m_error; }
+    std::string Error() const
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        return m_error;
+    }
 
     float GetRarityWeight(uint32_t rarity) const;
 
-    std::vector<int> GetFriends() const { return m_friends; };
+    std::vector<int> GetFriends() const
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        return m_friends;
+    }
 
 private:
     void Parse(const KeyValue& config);
+    mutable std::recursive_mutex m_mutex;
     // actually default to 4465480 instead of 730
     uint32_t m_appIdOverride{ 4465480 };
     bool m_showCsgoGCServersOnly{ true };
